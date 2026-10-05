@@ -169,6 +169,15 @@ up.
 `samay status --json` tells a harness whether Samay is here, whether
 its clock is running, and how to start `samay mcp`.
 
+**In Yantra, there's nothing to set up.** When `samay` is on `PATH` (or
+`YANTRA_SAMAY` names it), Yantra reads `samay status --json` at startup,
+starts `samay mcp --for local` itself, and writes the approval card for
+a new schedule in words: when, who hears, what each `allow_tools` glob
+reaches in that agent, and which of your accounts the run could change
+or read. `yantra --web` gets a Schedules panel that uses the `--json`
+commands below, so it works whether or not `samay serve` is running
+(Yantra's notes/115).
+
 ### Saying when
 
 `--when` takes a short form, or the same thing as JSON, which is what an
@@ -327,9 +336,11 @@ agent's tools all work, and are covered by 143 tests. The API is not
 stable.
 
 Not here yet:
-* Yantra finding Samay by itself and offering its tools to every
-  agent, with a Schedules tab in `yantra --web`. Until then, connect
-  `samay mcp` to Yantra as any MCP server (`--mcp-config`).
+* ~~Yantra finding Samay by itself, with a Schedules tab in `yantra
+  --web`.~~ Done on Yantra's side (its notes/115).
+* The Dvara road for agent-made schedules: a Telegram person's agent
+  needs `samay mcp --for <their id>`, and Dvara starts no MCP servers
+  for its agents yet.
 
 ## Tests
 
