@@ -61,8 +61,8 @@ what a `when_new` run is shown so it can tell what's new.
   (dvara's [tutorial §15](https://github.com/kunwarmahen/dvara/blob/main/TUTORIAL.md)).
 * **[Setu](https://github.com/kunwarmahen/setu)** is reached through Yantra: a direct-road run is an
   ordinary Yantra run, so it can read the accounts Setu keeps without
-  asking. Runs on the Dvara road can't yet, because agents behind dvara
-  get no Setu accounts.
+  asking. On the Dvara road a run reaches the person's own accounts,
+  when dvara gives them a Setu folder ([dvara's note 19](https://github.com/kunwarmahen/dvara/blob/main/notes/19-their-own-accounts.md)).
 
 ## Setup
 
