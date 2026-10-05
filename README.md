@@ -49,6 +49,21 @@ page, and the tools an agent uses to suggest a schedule;
 [04 — new against what was told](notes/04-new-against-what-was-told.md),
 what a `when_new` run is shown so it can tell what's new.
 
+## Works with
+
+* **[Yantra](https://github.com/kunwarmahen/yantra)** does every run: Samay starts `yantra --json
+  --unattended` (the direct road). Yantra also finds Samay by itself, so
+  the agent can offer a schedule, with a card in words and a Schedules
+  panel in `yantra --web` (Yantra's notes 115 and 116).
+* **[dvara](https://github.com/kunwarmahen/dvara)** is the other road: a run as a person, on their
+  allowance, answered on their Telegram (see *Two roads* below). With
+  `dvara --samay`, a person's agent can offer a schedule in the chat
+  (dvara's [tutorial §15](https://github.com/kunwarmahen/dvara/blob/main/TUTORIAL.md)).
+* **[Setu](https://github.com/kunwarmahen/setu)** is reached through Yantra: a direct-road run is an
+  ordinary Yantra run, so it can read the accounts Setu keeps without
+  asking. Runs on the Dvara road can't yet, because agents behind dvara
+  get no Setu accounts.
+
 ## Setup
 
 ```bash
