@@ -24,6 +24,9 @@ an unwatched schedule goes wrong:
   the same page. The person is told what is needed; resuming is theirs.
 * A BUSY BROWSER IS NOT A FAILURE. Another Yantra had the profile; the
   run is ``busy``, nobody is told, and the next time tries again.
+* A HELD RUN IS WAITING, NOT FAILED. On the Dvara road a turn may stop
+  for the person's approval of a tool; they have been asked on their
+  channel already, so the run is ``held`` and nothing more is sent.
 
 WHAT IS SENT, AND WHEN, is the schedule's ``notify``: ``always`` sends
 every answer; ``when_new`` asks the agent to reply ``NOTHING NEW`` when
@@ -252,6 +255,8 @@ class Clock:
             run.outcome = "timed_out"
         elif result.needs:
             run.outcome = "needs_person"
+        elif result.held:
+            run.outcome = "held"
         elif result.busy:
             run.outcome = "busy"
             run.detail = "; ".join(result.busy)

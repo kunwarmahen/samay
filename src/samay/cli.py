@@ -38,6 +38,7 @@ from zoneinfo import ZoneInfo
 
 from samay import __version__, schedules
 from samay.clock import Clock
+from samay.dvara import Dvara, DvaraError, DvaraNotifier, DvaraRunner
 from samay.runners import DirectRunner
 from samay.store import NOTIFY, Run, Schedule, Store, from_iso
 
@@ -71,8 +72,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--when", required=True,
                    help="e.g. 'every 3h', 'at 08:00 on mon-fri', or JSON")
     p.add_argument("--tz")
-    p.add_argument("--agent", default="", metavar="DIR",
-                   help="the agent package to run (default: plain Yantra)")
+    p.add_argument("--agent", default="", metavar="DIR|NAME",
+                   help="the agent package to run (default: plain Yantra); "
+                        "on the Dvara road, an agent's name on its roster")
+    p.add_argument("--runner", choices=("direct", "dvara"), default="direct",
+                   help="run it here (default), or through Dvara as a person "
+                        "-- their allowance, their rules, their Telegram")
+    p.add_argument("--as", dest="as_actor", default="", metavar="ACTOR",
+                   help="the Dvara-road person this runs as and is sent to "
+                        "(default: $SAMAY_DVARA_ACTOR)")
     p.add_argument("--notify", choices=NOTIFY, default="when_new",
                    help="send every answer, only news (default), or none")
     p.add_argument("--allow-tools", action="append", default=[],
@@ -135,7 +143,9 @@ def _dispatch(args, store: Store, state: Path) -> int:
         schedule = schedules.create(
             store, prompt=args.prompt, when=args.when, tz=args.tz,
             agent=args.agent, notify=args.notify, allow_tools=args.allow_tools,
-            time_limit=args.time_limit, browser_profile=args.browser_profile)
+            time_limit=args.time_limit, browser_profile=args.browser_profile,
+            runner=args.runner, owner=args.as_actor or schedules.LOCAL_OWNER,
+            dvara=_dvara() if args.runner == "dvara" else None)
         if args.json_out:
             print(json.dumps(_card(schedule)))
         else:
@@ -195,7 +205,7 @@ def _dispatch(args, store: Store, state: Path) -> int:
               else f"removed {schedule.id}")
         return 0
     if cmd == "run-now":
-        clock = Clock(store, _runners(state))
+        clock = Clock(store, _runners(state), notifier=_notifier())
         try:
             run = clock.run_now(schedule.id)
         except RuntimeError as exc:
@@ -214,8 +224,26 @@ def _dispatch(args, store: Store, state: Path) -> int:
     raise AssertionError(cmd)
 
 
+def _dvara() -> Dvara | None:
+    try:
+        return Dvara.from_env()
+    except DvaraError as exc:
+        raise schedules.ScheduleError(str(exc)) from None
+
+
 def _runners(state: Path) -> dict:
-    return {"direct": DirectRunner(state / "work")}
+    runners: dict = {"direct": DirectRunner(state / "work")}
+    dvara = _dvara()
+    if dvara is not None:
+        runners["dvara"] = DvaraRunner(dvara)
+    return runners
+
+
+def _notifier() -> DvaraNotifier | None:
+    """Where answers go: the person's channels through Dvara, when there
+    is a Dvara; otherwise nowhere, and the runs are only kept."""
+    dvara = _dvara()
+    return DvaraNotifier(dvara) if dvara is not None else None
 
 
 # -- serve -------------------------------------------------------------------
@@ -250,14 +278,18 @@ def _serve(store: Store, state: Path) -> int:
 
     def started(interrupted: int) -> None:
         active = store.schedules(state="active")
+        dvara = _dvara()
         print(f"samay {__version__}: {len(active)} active schedule(s), "
               f"state in {state}")
+        print(f"answers go to: {dvara.url} (/notify)" if dvara else
+              "answers go nowhere: set SAMAY_DVARA_URL to send them to "
+              "people's channels; until then they are only kept")
         if interrupted:
             print(f"{interrupted} run(s) were going when Samay last stopped; "
                   "marked interrupted, not run again")
         sys.stdout.flush()
 
-    clock = Clock(store, _runners(state), on_record=log)
+    clock = Clock(store, _runners(state), notifier=_notifier(), on_record=log)
     try:
         clock.serve(stop, on_start=started)
     finally:

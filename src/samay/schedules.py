@@ -25,6 +25,7 @@ from datetime import datetime
 from pathlib import Path
 
 from samay import when as when_mod
+from samay.dvara import Dvara, DvaraError
 from samay.store import NOTIFY, RUNNERS, Schedule, Store, from_iso, iso, now_utc
 
 DEFAULT_MAX_SCHEDULES = 20
@@ -83,7 +84,8 @@ def create(store: Store, *, prompt: str, when: dict | str,
            runner: str = "direct", agent: str = "",
            notify: str = "when_new", allow_tools: list[str] | None = None,
            time_limit: int = DEFAULT_TIME_LIMIT, browser_profile: str = "",
-           created_via: str = "cli", now: datetime | None = None) -> Schedule:
+           created_via: str = "cli", now: datetime | None = None,
+           dvara: Dvara | None = None) -> Schedule:
     now = now or now_utc()
     prompt = (prompt or "").strip()
     if not prompt:
@@ -109,6 +111,11 @@ def create(store: Store, *, prompt: str, when: dict | str,
             raise ScheduleError(f"{agent} is not an agent package (no "
                                 "agent.toml in it)")
         agent = str(package)
+    if runner == "dvara":
+        owner = _dvara_owner(dvara, agent, owner)
+        if browser_profile:
+            raise ScheduleError("--browser-profile is for the direct road; on "
+                                "the Dvara road the browser is Dvara's to set")
     if browser_profile:
         browser_profile = str(Path(browser_profile).expanduser().resolve())
     schedule = Schedule(
@@ -118,6 +125,29 @@ def create(store: Store, *, prompt: str, when: dict | str,
         time_limit=int(time_limit), browser_profile=browser_profile,
         created_at=iso(now), created_via=created_via, next_at=said["next"][0])
     return store.add(schedule)
+
+
+def _dvara_owner(dvara: Dvara | None, agent: str, owner: str) -> str:
+    """Check a Dvara-road schedule against the Dvara it will run on:
+    reachable, the agent on its roster, and a person to run as."""
+    if dvara is None:
+        raise ScheduleError("the Dvara road needs SAMAY_DVARA_URL and "
+                            "SAMAY_DVARA_TOKEN")
+    if not agent:
+        raise ScheduleError("the Dvara road needs --agent NAME, an agent on "
+                            "Dvara's roster")
+    try:
+        offered = dvara.agents()
+    except (DvaraError, TimeoutError) as exc:
+        raise ScheduleError(str(exc)) from None
+    if agent not in offered:
+        raise ScheduleError(f"dvara has no agent {agent!r}; it offers: "
+                            f"{', '.join(offered) or 'none'}")
+    person = owner if owner != LOCAL_OWNER else dvara.actor
+    if not person:
+        raise ScheduleError("say who this runs as: --as ACTOR (someone in "
+                            "Dvara's actors file), or set SAMAY_DVARA_ACTOR")
+    return person
 
 
 def find(store: Store, schedule_id: str, owner: str | None = None) -> Schedule:

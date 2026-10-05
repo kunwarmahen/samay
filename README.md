@@ -9,7 +9,16 @@ of schedules, wakes up when one is due, asks [Yantra](https://github.com/kunwarm
 to do the work, writes down what came back, and leaves you a record
 you can read, pause, or delete.
 
-*samay* (समय) is Hindi and Sanskrit for *time*.
+## The name
+
+**samay** — समय (Sanskrit *samaya*; said roughly *suh-my*).
+
+In Hindi, *samay* simply means **time**: *kya samay hua hai?* is
+"what time is it?". The Sanskrit *samaya* it comes from means more than that: *a
+coming together*, *an agreement*, and **the appointed time**, the
+moment two parties settled on. That's this program's whole job. You
+and your agent agree on something ("every weekday at 8, check X"),
+and Samay keeps the appointment.
 
 ```
             ┌─────────────────────────────┐
@@ -32,7 +41,9 @@ prints. It imports nothing from Yantra and has no dependencies of its
 own.
 
 How it's built, and why, is in the notes:
-[01 — a clock and a logbook](notes/01-a-clock-and-a-logbook.md).
+[01 — a clock and a logbook](notes/01-a-clock-and-a-logbook.md);
+[02 — as the person](notes/02-as-the-person.md), the Dvara road, and
+how an answer reaches somebody who wasn't asked.
 
 ## Setup
 
@@ -123,15 +134,17 @@ error: unknown key(s) evry in "when"; known: every, at, once, cron, between, day
 If a schedule is paused (see below), you're always told, whatever
 `--notify` says.
 
-> **Where is "sent"?** Sending needs a channel. Schedules run through
-> Dvara, the always-on service Yantra agents live behind, will reach
-> you on Telegram. That road isn't built yet. Runs started directly, as here,
-> are kept for `samay runs` and nothing more.
+> **Where is "sent"?** Sending needs a channel, and the channels live
+> in Dvara, the always-on service Yantra agents live behind. With
+> `SAMAY_DVARA_URL` set, answers go to the person's own channels
+> (Telegram) through Dvara, whichever road the run took. Without it,
+> runs are kept for `samay runs` and nothing more.
 
 ### When something goes wrong
 
 | What happened | Recorded as | What Samay does |
 |---|---|---|
+| Dvara asked you to approve a tool, and you haven't answered yet | `held` | nothing more: you were asked on your channel; answer there and the turn carries on |
 | The machine was off at the time | `missed` | runs it late if still within its grace (half its step, at most an hour), otherwise moves on. **Never replays a backlog.** |
 | The last run was still going | `skipped` | waits for the next time |
 | The browser profile was in use by another Yantra | `busy` | nothing; the next time tries again |
@@ -161,6 +174,38 @@ Your [Setu](https://github.com/kunwarmahen/setu) connections are there
 for a scheduled run too, exactly as for any Yantra run. Their read-only
 tools run without being named in `--allow-tools`.
 
+## Two roads
+
+Every schedule runs one of two ways. Both run the same Yantra; they
+differ in *who* the run is, and where its answer can go.
+
+| | `--runner direct` (default) | `--runner dvara` |
+|---|---|---|
+| Who does the work | Yantra, started here as a program | Yantra, inside Dvara, **as a person** on Dvara's actors file |
+| `--agent` | a package folder (or none) | an agent's name on Dvara's roster |
+| What may run unasked | read-only tools, plus `--allow-tools` | the same, but only what that person could have been asked about: the owner's deny rules still refuse, and a read-only person is never answered for |
+| A tool nobody allowed | refused, listed under the run | **put to the person** on Telegram; if they don't answer in time, the run is `held` until they do |
+| Who pays | nobody counts it | the person's **daily allowance** |
+| Where the answer goes | Dvara, if set up (see below); otherwise only `samay runs` | the person's channels |
+
+The Dvara road:
+
+```bash
+# Dvara running with its HTTP surface (and, for Telegram, a bot in the same process):
+DVARA_TOKEN=... dvara --ask --on-timeout hold serve --telegram scribe
+
+export SAMAY_DVARA_URL=http://127.0.0.1:8765
+export SAMAY_DVARA_TOKEN=...          # Dvara's DVARA_TOKEN
+samay add "Any mail that needs me today?" --when "every 2h" \
+      --runner dvara --agent scribe --as mahen
+```
+
+`--as` names the person on Dvara's actors file; `SAMAY_DVARA_ACTOR` is
+the default for both roads, so direct-road answers reach that person
+too. A schedule is checked against Dvara when it is made: an agent
+Dvara doesn't offer, or nobody to run as, is refused before anything
+is saved.
+
 ## Settings
 
 | Variable | What |
@@ -169,6 +214,9 @@ tools run without being named in `--allow-tools`.
 | `SAMAY_YANTRA` | the command that starts Yantra; may be several words (`uv run --project ~/yantra yantra`) |
 | `SAMAY_YANTRA_HOME` | the folder Yantra starts in, for its `.env` |
 | `SAMAY_TZ` | the default time zone for new schedules |
+| `SAMAY_DVARA_URL` | where Dvara's HTTP surface is; set, answers are sent and `--runner dvara` works |
+| `SAMAY_DVARA_TOKEN` | Dvara's `DVARA_TOKEN` |
+| `SAMAY_DVARA_ACTOR` | the person a schedule made here runs as and is sent to, when `--as` isn't given |
 | `SAMAY_MAX_SCHEDULES` | how many schedules one person may have (default 20) |
 
 Everything is in one SQLite file, `~/.samay/samay.sqlite3`, readable
@@ -187,16 +235,18 @@ src/samay/
 │                 after failures or a need, what is sent; samay serve's loop
 ├── runners.py    the direct road: yantra as a program, killed with its whole
 │                 process group at the time limit, only its JSON believed
+├── dvara.py      the Dvara road: POST /message as the person, unattended, with
+│                 what they allowed ahead of time; answers out through
+│                 POST /notify. Standard library only
 └── cli.py        the commands above
 ```
 
 ## Status
 
-The clock, the records, the rules above and the direct road all work,
-and are covered by 95 tests. The API is not stable.
+The clock, the records, the rules above, and both roads work, and are
+covered by 114 tests. The API is not stable.
 
 Not here yet:
-* the Dvara road (a run as you, through Dvara: allowance, rules, Telegram);
 * Samay's own page, and the tools an agent uses to suggest a schedule
   for you to accept;
 * a Schedules tab in `yantra --web`.
@@ -204,5 +254,6 @@ Not here yet:
 ## Tests
 
 ```bash
-uv run pytest -q          # offline: a fake clock, a fake runner, a fake yantra
+uv run pytest -q          # offline: a fake clock, a fake runner, a fake yantra,
+                          #   a fake Dvara on a local socket
 ```

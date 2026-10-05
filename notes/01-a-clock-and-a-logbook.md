@@ -221,6 +221,7 @@ and afterwards the one-time schedule reads `done`.
 * **Triggers other than time** ("when a mail from my bank arrives").
   That's something that watches, not a clock, and it needs its own
   design.
-* **Sending, on this road.** A run started directly has no channel to
-  reach you on, so it's kept for `samay runs`. Sending arrives with
-  runs through Dvara, where the channels already are.
+* ~~**Sending, on this road.**~~ A run started directly has no channel
+  of its own. With Dvara set up, its answer goes out through Dvara's
+  `POST /notify`, and a schedule can also run *as* a person there
+  ([note 02](02-as-the-person.md)).

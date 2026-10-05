@@ -67,6 +67,9 @@ class RunResult:
     busy: list[str] = field(default_factory=list)
     refused: list[str] = field(default_factory=list)
     timed_out: bool = False
+    #: The turn stopped to wait for the person's approval (the Dvara road:
+    #: they were asked, and have not answered yet).
+    held: bool = False
     dvara_run_id: str = ""
 
 
