@@ -93,10 +93,12 @@ said what stopped it (*"I couldn't complete this: x.com refused
 access … HTTP 403"*) and was filed `ok`, so it would be sent. One
 change since note 01: x.com now answers a headless browser that isn't
 signed in with a 403 rather than a sign-in page, so the model explains
-instead of handing off. The run isn't `needs_person`, and the schedule
-isn't paused. You'd be told each morning until you sign in. That's
-noisier than a pause, but it isn't silent, and silence is the failure
-that matters.
+instead of handing off. The run wasn't `needs_person`, and the schedule
+wasn't paused: you'd have been told each morning until you signed in.
+Noisier than a pause, but not silent, and silence is the failure that
+matters. Yantra then gave a refused page in an unattended run the same
+way out a sign-in page has (its note 114), and three runs out of three
+handed off and paused.
 
 ## What was deliberately not built
 
