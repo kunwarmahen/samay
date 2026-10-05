@@ -269,6 +269,17 @@ class Store:
                 (schedule_id,)).fetchone()
         return _load(Run, row) if row else None
 
+    def last_told(self, schedule_id: str) -> Run | None:
+        """The last run that reported something -- not a quiet one, whose
+        whole reply is NOTHING NEW -- so "what's new since" has something
+        to be new against."""
+        with self._db() as db:
+            row = db.execute(
+                "SELECT * FROM run WHERE schedule = ? AND outcome = 'ok' "
+                "AND reply != '' ORDER BY started_at DESC LIMIT 1",
+                (schedule_id,)).fetchone()
+        return _load(Run, row) if row else None
+
     def interrupt_unfinished(self, at: datetime | None = None) -> int:
         """Runs a dead process left ``running``: said to be interrupted."""
         with self._db() as db:

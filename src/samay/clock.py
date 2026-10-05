@@ -38,6 +38,12 @@ nobody -- so the instruction says in as many words that a run which
 could not do the work must say what stopped it instead. A schedule being paused is always
 said, whatever ``notify`` is -- a schedule that quietly stops is worse
 than one that never started.
+
+NEW AGAINST WHAT WAS TOLD. A ``when_new`` run is shown the last reply
+that reported something, not only the last run's one line. With the
+line alone a live run called two unchanged stories "new" (it had been
+shown only the first), and after a quiet run it had nothing to compare
+against at all.
 """
 
 from __future__ import annotations
@@ -76,9 +82,19 @@ class Notifier(Protocol):
     def send(self, schedule: Schedule, text: str) -> bool: ...
 
 
-def compose(schedule: Schedule, last: Run | None) -> str:
+#: How much of the last report a ``when_new`` run is shown.
+TOLD_CAP = 1500
+
+
+def compose(schedule: Schedule, last: Run | None, report: Run | None = None) -> str:
     """The prompt a run is given: the schedule's own, with what the agent
-    should know about this run around it."""
+    should know about this run around it.
+
+    ``report`` is the last run that reported something. A ``when_new`` run
+    is shown it, capped: "what's new since last time" cannot be judged
+    from a one-line summary, and after a quiet run the last summary is
+    only NOTHING NEW. Other schedules get the one line, and their cost
+    stays flat."""
     parsed = when_mod.parse(schedule.when, schedule.tz)
     told = {"always": "your answer is sent to the person",
             "when_new": "your answer is sent to the person only if there "
@@ -89,6 +105,13 @@ def compose(schedule: Schedule, last: Run | None) -> str:
     if last is not None and last.summary:
         when = from_iso(last.started_at).astimezone(parsed.tz)
         parts += ["", f"(Last run, {when:%a %-d %b %H:%M}: {last.summary})"]
+    if schedule.notify == "when_new" and report is not None and report.reply:
+        when = from_iso(report.started_at).astimezone(parsed.tz)
+        shown = report.reply.strip()
+        if len(shown) > TOLD_CAP:
+            shown = shown[:TOLD_CAP - 1] + "…"
+        parts += ["", f"(What you reported on {when:%a %-d %b %H:%M} -- compare "
+                      f"against it; only what is not in it is new:", shown, ")"]
     if schedule.notify == "when_new":
         parts += ["", "If you did what was asked and there is nothing new "
                       "worth telling the person since the last run, reply with "
@@ -114,8 +137,14 @@ def summarize(text: str, limit: int = 200) -> str:
 
 
 def is_quiet(text: str) -> bool:
-    lines = [ln for ln in text.splitlines() if ln.strip()]
-    return bool(lines) and bool(_QUIET.match(lines[0].strip()))
+    """The reply is NOTHING NEW -- alone, or as the verdict on its first or
+    last line. A model shown what it reported last time compares first
+    and concludes last ("identical to the last run ... NOTHING NEW");
+    that is the same verdict the bare words give, so it counts the same.
+    A line that merely mentions it ("nothing new from the bank, but...")
+    never does."""
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    return bool(lines) and bool(_QUIET.match(lines[0]) or _QUIET.match(lines[-1]))
 
 
 class Clock:
@@ -228,7 +257,9 @@ class Clock:
     def _execute(self, schedule: Schedule, due: datetime) -> Run:
         try:
             run = self.store.start_run(schedule.id, due, at=self.now())
-            prompt = compose(schedule, self.store.last_finished(schedule.id))
+            report = (self.store.last_told(schedule.id)
+                      if schedule.notify == "when_new" else None)
+            prompt = compose(schedule, self.store.last_finished(schedule.id), report)
             runner = self.runners.get(schedule.runner)
             if runner is None:
                 result = RunResult(ok=False, stop_reason="error",

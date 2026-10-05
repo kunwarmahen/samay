@@ -45,7 +45,9 @@ How it's built, and why, is in the notes:
 [02 — as the person](notes/02-as-the-person.md), the Dvara road, and
 how an answer reaches somebody who wasn't asked;
 [03 — offered, then accepted](notes/03-offered-then-accepted.md), the
-page, and the tools an agent uses to suggest a schedule.
+page, and the tools an agent uses to suggest a schedule;
+[04 — new against what was told](notes/04-new-against-what-was-told.md),
+what a `when_new` run is shown so it can tell what's new.
 
 ## Setup
 
@@ -208,7 +210,10 @@ error: unknown key(s) evry in "when"; known: every, at, once, cron, between, day
 
 * `when_new` (default): the agent is asked to reply `NOTHING NEW` when
   it did the check and found nothing worth telling. Those runs are
-  kept and not sent.
+  kept and not sent. To judge what's new, each run is shown what the
+  last one that said something reported (up to 1,500 characters), and
+  `NOTHING NEW` counts as the reply's first line or as its verdict on
+  the last ([note 04](notes/04-new-against-what-was-told.md)).
 * `always`: every answer is sent.
 * `never`: everything is kept, nothing is sent.
 
@@ -314,7 +319,8 @@ src/samay/
 ├── store.py      the SQLite file: schedules (the promise) and runs (the receipt)
 ├── schedules.py  add / pause / resume / remove, the per-person cap, preview
 ├── clock.py      the rules: missed, skipped, claimed before running, paused
-│                 after failures or a need, what is sent; samay serve's loop
+│                 after failures or a need, what is sent (a when_new run is
+│                 shown the last report, note 04); samay serve's loop
 ├── runners.py    the direct road: yantra as a program, killed with its whole
 │                 process group at the time limit, only its JSON believed
 ├── dvara.py      the Dvara road: POST /message as the person, unattended, with
@@ -332,7 +338,7 @@ src/samay/
 ## Status
 
 The clock, the records, the rules above, both roads, the page and the
-agent's tools all work, and are covered by 143 tests. The API is not
+agent's tools all work, and are covered by 149 tests. The API is not
 stable.
 
 Not here yet:

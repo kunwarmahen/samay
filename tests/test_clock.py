@@ -271,6 +271,8 @@ class TestWhatIsSent:
     @pytest.mark.parametrize("text,quiet", [
         ("NOTHING NEW", True), ("Nothing new.", True), ("`NOTHING NEW`", True),
         ("Nothing new from the bank, but one from your landlord", False),
+        ("The top 3 are identical to the last run.\n\nNOTHING NEW", True),
+        ("NOTHING NEW at the bank.\n\nBut your landlord wrote: the lease is ready", False),
         ("", False)])
     def test_what_counts_as_quiet(self, text, quiet):
         assert is_quiet(text) is quiet
@@ -297,6 +299,47 @@ class TestThePrompt:
         tick(clock)
         assert "(Last run, Mon 5 Oct 13:00: 2 new mails from the bank)" in \
             runner.prompts[1]
+
+
+    def test_a_when_new_run_is_shown_what_it_reported_last(self, world):
+        time, store, runner, _, clock = world
+        runner.results = [RunResult(ok=True, text="Top 3:\n1. A\n2. B\n3. C")]
+        add(store)
+        time.move(hours=1)
+        tick(clock)
+        time.move(hours=1)
+        tick(clock)
+        assert "1. A\n2. B\n3. C" in runner.prompts[1]
+        assert "only what is not in it is new" in runner.prompts[1]
+
+    def test_a_quiet_run_between_does_not_hide_the_last_report(self, world):
+        time, store, runner, _, clock = world
+        runner.results = [RunResult(ok=True, text="Top 3:\n1. A\n2. B\n3. C"),
+                          RunResult(ok=True, text="NOTHING NEW")]
+        add(store)
+        for _ in range(3):
+            time.move(hours=1)
+            tick(clock)
+        assert "(Last run, Mon 5 Oct 14:00: NOTHING NEW)" in runner.prompts[2]
+        assert "1. A\n2. B\n3. C" in runner.prompts[2]
+
+    def test_a_schedule_that_always_tells_keeps_to_one_line(self, world):
+        time, store, runner, _, clock = world
+        runner.results = [RunResult(ok=True, text="Top 3:\n1. A\n2. B\n3. C")]
+        add(store, notify="always")
+        time.move(hours=1)
+        tick(clock)
+        time.move(hours=1)
+        tick(clock)
+        assert "2. B" not in runner.prompts[1]
+
+    def test_a_long_report_is_cut(self, world):
+        _, store, _, _, _ = world
+        s = add(store)
+        told = store.start_run(s.id, START, at=START)
+        told.reply, told.outcome = "x" * 5000, "ok"
+        prompt = compose(s, None, told)
+        assert "x" * 1499 + "…" in prompt and "x" * 1500 not in prompt
 
 
 class TestRunNow:

@@ -153,6 +153,10 @@ sign-in wall now has its own way out, but a model that says
 are all kept with their full answers, so `samay runs` shows it. Nothing
 here *proves* the check was done.
 
+"New since the last run" needed more than the last run's one line: a
+`when_new` run is now shown the last report itself
+([note 04](04-new-against-what-was-told.md)).
+
 ## Refused is not the same as needed
 
 The first version counted every tool the unattended run wasn't allowed
