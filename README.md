@@ -374,9 +374,9 @@ stable.
 Not here yet:
 * ~~Yantra finding Samay by itself, with a Schedules tab in `yantra
   --web`.~~ Done on Yantra's side (its notes/115).
-* The Dvara road for agent-made schedules: a Telegram person's agent
-  needs `samay mcp --for <their id>`, and Dvara starts no MCP servers
-  for its agents yet.
+* ~~The Dvara road for agent-made schedules.~~ `dvara --samay` starts
+  `samay mcp --for <their id> --runner dvara` for each person's turn
+  (Dvara's note 18).
 
 ## Tests
 
