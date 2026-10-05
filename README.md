@@ -102,6 +102,34 @@ samay rm 67cad6f8          # the schedule and its history
 
 Every command takes `--json`, for a page or a program to read.
 
+### Keeping it running
+
+`samay serve` in a terminal stops when the terminal closes or the
+machine restarts, and nothing tells you until the 08:00 check doesn't
+come. On Linux, let systemd keep it running instead:
+
+```bash
+# in the shell where SAMAY_YANTRA, SAMAY_DVARA_URL etc. are already set
+samay unit --install
+#   wrote ~/.config/systemd/user/samay.service
+#   wrote ~/.config/samay/samay.env (yours alone): PATH, SAMAY_STATE, SAMAY_YANTRA
+#   nothing is started; to start it now and at every login:
+systemctl --user daemon-reload
+systemctl --user enable --now samay
+journalctl --user -u samay -f            # what it says, including the page's address
+loginctl enable-linger $USER             # optional: keep it running when you log out
+```
+
+A service starts with almost nothing set, so `--install` copies this
+shell's `SAMAY_*` and `YANTRA_*` settings, and its `PATH`, into
+`samay.env`. That file can hold tokens, so only you can read it; the
+unit itself holds no setting. Change a setting by running `--install`
+again from a shell that has it, then `systemctl --user restart samay`.
+`samay unit` without `--install` only prints the unit. Nothing is
+started for you: whether a program keeps running while you're logged
+out is your decision. The page's address, token included, goes to your
+own journal, the same as it would to your terminal.
+
 ### The page
 
 `samay serve` also serves a page, at the address it prints. It shows
@@ -332,13 +360,15 @@ src/samay/
 ├── mcp.py        the agent's tools, for one person (stdio MCP, by hand)
 ├── status.py     samay status --json: is it here, is the clock running,
 │                 how to start the tools
+├── unit.py       samay unit: a systemd user unit for samay serve, and an env
+│                 file (yours alone) with the settings a service would lack
 └── cli.py        the commands above
 ```
 
 ## Status
 
 The clock, the records, the rules above, both roads, the page and the
-agent's tools all work, and are covered by 149 tests. The API is not
+agent's tools all work, and are covered by 157 tests. The API is not
 stable.
 
 Not here yet:

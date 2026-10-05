@@ -12,6 +12,7 @@
     samay serve [--port 8780]                   the clock, and its page, until stopped
     samay mcp --for WHO [--agent A]             the tools an agent uses (MCP, stdio)
     samay status [--json]                       is the clock running, and where
+    samay unit [--install]                      keep the clock running (systemd)
 
 ``--when`` takes the short form (``every 30m between 09:00-18:00 on
 mon-fri``, ``at 08:00,20:00``, ``once 2026-10-06T15:00``, ``cron 0 */2 *
@@ -44,7 +45,7 @@ from samay.clock import Clock
 from samay.dvara import Dvara, DvaraError, DvaraNotifier, DvaraRunner
 from samay.http import DEFAULT_PORT, Api, SamayServer, serve_token
 from samay.runners import DirectRunner
-from samay.status import report, serving
+from samay.status import report, samay_command, serving
 from samay.store import NOTIFY, Run, Schedule, Store, from_iso
 
 
@@ -138,6 +139,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--runner", choices=("direct", "dvara"), default=None,
                    help="default: dvara for a Dvara person, direct for local")
 
+    p = sub.add_parser("unit", help="a systemd user unit that keeps samay "
+                                    "serve running; prints it, or --install")
+    p.add_argument("--install", action="store_true",
+                   help="write it, and an env file with this shell's SAMAY_* "
+                        "and YANTRA_* settings (it starts nothing)")
+    p.add_argument("--port", type=int, default=DEFAULT_PORT)
+
     p = sub.add_parser("status", help="is the clock running, and where")
     p.add_argument("--json", action="store_true", dest="json_out")
     return parser
@@ -210,6 +218,24 @@ def _dispatch(args, store: Store, state: Path) -> int:
         tools = mcp.Tools(store, state, person=args.person, agent=args.agent,
                           runner=args.runner, dvara=_dvara())
         mcp.serve(tools)
+        return 0
+    if cmd == "unit":
+        from samay import unit
+        command = samay_command()
+        if not args.install:
+            print(unit.unit_text(command, state.resolve(), args.port), end="")
+            return 0
+        written, env, names = unit.install(command, state.resolve(), args.port,
+                                           dict(os.environ))
+        print(f"wrote {written}")
+        print(f"wrote {env} (yours alone): PATH"
+              + (", " + ", ".join(names) if names else ""))
+        if not os.environ.get("SAMAY_YANTRA"):
+            print("note: SAMAY_YANTRA is not set here, so the service will look for "
+                  "`yantra` on PATH")
+        print("nothing is started; to start it now and at every login:")
+        for line in unit.NEXT:
+            print(f"  {line}")
         return 0
     if cmd == "status":
         said = report(state, store)
