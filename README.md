@@ -43,7 +43,9 @@ own.
 How it's built, and why, is in the notes:
 [01 — a clock and a logbook](notes/01-a-clock-and-a-logbook.md);
 [02 — as the person](notes/02-as-the-person.md), the Dvara road, and
-how an answer reaches somebody who wasn't asked.
+how an answer reaches somebody who wasn't asked;
+[03 — offered, then accepted](notes/03-offered-then-accepted.md), the
+page, and the tools an agent uses to suggest a schedule.
 
 ## Setup
 
@@ -74,8 +76,9 @@ samay add "Any mail that needs me today? Say who and why." --when "every 2h"
 samay add "Open https://news.ycombinator.com and tell me the top 3 stories." \
       --when "at 08:00 on weekdays" --allow-tools 'browser_*' --notify always
 
-# run the clock (keep it running: nothing runs on time otherwise)
+# run the clock, and its page (keep it running: nothing runs on time otherwise)
 samay serve
+#   page: http://127.0.0.1:8780/#token=…     open this once; the browser keeps it
 
 # see, check, stop, take back
 samay list
@@ -96,6 +99,75 @@ samay rm 67cad6f8          # the schedule and its history
 ```
 
 Every command takes `--json`, for a page or a program to read.
+
+### The page
+
+`samay serve` also serves a page, at the address it prints. It shows
+the next 24 hours as a strip with a dot for every run due, then every
+schedule: when it next runs, what it does, how its last run went, and
+why it's paused if it is. Each one has **Run now**, **Pause** or
+**Resume**, **History** (every run, with the full answer behind a
+click), and **Delete**. **New schedule** says your *when* back in words
+as you type it, before anything is saved.
+
+![Samay's page: the next 24 hours as a strip of dots, then four schedules — two waiting for 08:00 tomorrow, one paused because x.com needs a sign-in, one paused by hand](docs/page.png)
+
+It listens on localhost only (`--host` to change that, `--port` for
+another port, `--port 0` for no page), and every request behind it
+needs a token. Any website you visit could send a request to
+127.0.0.1, so localhost alone isn't protection. The token is made once
+and kept in the state folder, readable by you alone (or set
+`SAMAY_TOKEN`). It reaches the page after the `#` in the printed
+address, which a browser never sends to a server, so it doesn't end
+up in any log.
+
+The page is drawn from a small JSON API, which any program may use:
+
+```
+GET    /api/status                      is the clock running; how many schedules
+GET    /api/schedules                   every schedule, its last run, the next day's times
+POST   /api/preview      {when, tz}     the sentence, before anything is saved
+POST   /api/schedules    {prompt, when, notify, allow_tools, runner, agent, as, time_limit}
+POST   /api/schedules/ID/pause | /resume | /run      (run answers 202 at once)
+DELETE /api/schedules/ID
+GET    /api/runs?schedule=ID&limit=N
+```
+
+### Your agent can offer it
+
+The best moment to set something up is in the middle of a
+conversation: "keep an eye on this for me". `samay mcp` is an MCP
+server with the tools an agent uses to offer that:
+
+```bash
+samay mcp --for local --agent ~/agents/reader    # what a harness starts
+```
+
+| Tool | |
+|---|---|
+| `preview_schedule` | checks a *when* and says it back in words, with the next three times |
+| `list_schedules`, `schedule_runs` | what this person has set up, and how it went |
+| `create_schedule` | saves one; the prompt is written for the agent's future self |
+| `pause_schedule`, `resume_schedule`, `delete_schedule` | |
+
+**The agent proposes and you accept.** The three reading tools are
+marked read-only and the four that change something aren't, so a
+harness that honours the mark (Yantra does) asks you before every
+create, pause, resume and delete. In the browser that's a card, at the
+terminal a y/N, on Telegram two buttons. The tools tell the model to
+preview first and tell you the sentence, so by the time the card
+arrives you've read what it means.
+
+**One person per server.** `--for` is fixed by the harness. The model
+has no way to name anyone else, and someone else's schedule is "no
+schedule" to every tool. `--agent` and `--runner` are the harness's to
+set too: a schedule made while talking to your mail agent runs your
+mail agent. There's no run-now tool, because a run is itself an agent
+turn, minutes long, and starting one from inside another would hold it
+up.
+
+`samay status --json` tells a harness whether Samay is here, whether
+its clock is running, and how to start `samay mcp`.
 
 ### Saying when
 
@@ -218,6 +290,7 @@ is saved.
 | `SAMAY_DVARA_TOKEN` | Dvara's `DVARA_TOKEN` |
 | `SAMAY_DVARA_ACTOR` | the person a schedule made here runs as and is sent to, when `--as` isn't given |
 | `SAMAY_MAX_SCHEDULES` | how many schedules one person may have (default 20) |
+| `SAMAY_TOKEN` | the page's token, instead of the one Samay makes and keeps in the state folder |
 
 Everything is in one SQLite file, `~/.samay/samay.sqlite3`, readable
 with the `sqlite3` shell. Each schedule's runs work in a folder of
@@ -238,22 +311,30 @@ src/samay/
 ├── dvara.py      the Dvara road: POST /message as the person, unattended, with
 │                 what they allowed ahead of time; answers out through
 │                 POST /notify. Standard library only
+├── http.py       the page and its JSON API, beside the clock in samay serve:
+│                 a token on every call, localhost by default
+├── static/       the page: one file, no fonts or scripts fetched from anywhere
+├── mcp.py        the agent's tools, for one person (stdio MCP, by hand)
+├── status.py     samay status --json: is it here, is the clock running,
+│                 how to start the tools
 └── cli.py        the commands above
 ```
 
 ## Status
 
-The clock, the records, the rules above, and both roads work, and are
-covered by 114 tests. The API is not stable.
+The clock, the records, the rules above, both roads, the page and the
+agent's tools all work, and are covered by 143 tests. The API is not
+stable.
 
 Not here yet:
-* Samay's own page, and the tools an agent uses to suggest a schedule
-  for you to accept;
-* a Schedules tab in `yantra --web`.
+* Yantra finding Samay by itself and offering its tools to every
+  agent, with a Schedules tab in `yantra --web`. Until then, connect
+  `samay mcp` to Yantra as any MCP server (`--mcp-config`).
 
 ## Tests
 
 ```bash
 uv run pytest -q          # offline: a fake clock, a fake runner, a fake yantra,
-                          #   a fake Dvara on a local socket
+                          #   a fake Dvara and the page's own server on local
+                          #   sockets, and samay mcp as a real process
 ```

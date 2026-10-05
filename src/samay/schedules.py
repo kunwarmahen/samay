@@ -21,7 +21,7 @@ resumed, and its count of failures starts again.
 from __future__ import annotations
 
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from samay import when as when_mod
@@ -192,6 +192,26 @@ def remove(store: Store, schedule_id: str, owner: str | None = None) -> Schedule
     schedule = find(store, schedule_id, owner)
     store.delete(schedule.id)
     return schedule
+
+
+def card(schedule: Schedule, store: Store | None = None) -> dict:
+    """A schedule as JSON for a page, a program or an agent: its fields,
+    the sentence, and (given the store) its last run."""
+    out = schedule.as_dict()
+    out["sentence"] = sentence(schedule)
+    # The next day's worth of times (at most 24), for a page that draws
+    # the day: what will run, and when.
+    out["upcoming"] = []
+    if schedule.state == "active":
+        now = now_utc()
+        parsed = when_mod.parse(schedule.when, schedule.tz)
+        horizon = now + timedelta(days=1)
+        out["upcoming"] = [iso(t) for t in parsed.upcoming(
+            now, 24, anchor=from_iso(schedule.created_at)) if t <= horizon]
+    if store is not None:
+        last = store.runs(schedule.id, limit=1)
+        out["last_run"] = last[0].as_dict() if last else None
+    return out
 
 
 def sentence(schedule: Schedule, now: datetime | None = None) -> str:

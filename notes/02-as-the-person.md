@@ -163,3 +163,7 @@ above.
   program stop another person's turn. That's a bigger decision than a
   timeout.
 * **Durable notices.** See above: Samay's run log is the record.
+
+The page where a person sees all of this, and the tools their agent
+uses to offer a schedule in the first place, are
+[note 03](03-offered-then-accepted.md).

@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Samay</title>
+<style>
+/* Samay's page. One accent (marigold, for time: the now-line, the ticks,
+   the one main button) on a cool paper; everything else is ink and lines.
+   No fonts are fetched: this is a local tool and it asks nobody for
+   anything. Light and dark are the same tokens with swapped values. */
+:root {
+  color-scheme: light;
+  --paper:   #f3f5f2;
+  --sheet:   #fbfcfa;
+  --sunk:    #e8ece6;
+  --line:    #d6dcd3;
+  --ink:     #1b211e;
+  --ink-2:   #4d5852;
+  --ink-3:   #6f7a73;
+  --gold:    #c98a00;
+  --gold-ink:#1b1400;
+  --gold-soft: rgba(201, 138, 0, .14);
+  --ok:      #2c7a52;
+  --needs:   #8b3a6f;
+  --needs-soft: rgba(139, 58, 111, .10);
+  --bad:     #b3261e;
+  --quiet:   #7b867f;
+  --focus:   rgba(201, 138, 0, .45);
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans",
+          "Helvetica Neue", Arial, sans-serif;
+  --deva: "Noto Sans Devanagari", "Noto Serif Devanagari", "Mangal",
+          "Kohinoor Devanagari", system-ui, sans-serif;
+  --measure: 880px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #111513; --sheet: #171c19; --sunk: #1f2622; --line: #2c3530;
+    --ink: #e6ebe7; --ink-2: #aab5ae; --ink-3: #85918a;
+    --gold: #e3a92b; --gold-ink: #161000; --gold-soft: rgba(227, 169, 43, .16);
+    --ok: #5cc28c; --needs: #d48bbd; --needs-soft: rgba(212, 139, 189, .12);
+    --bad: #f07b6f; --quiet: #8a958e; --focus: rgba(227, 169, 43, .5);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #111513; --sheet: #171c19; --sunk: #1f2622; --line: #2c3530;
+  --ink: #e6ebe7; --ink-2: #aab5ae; --ink-3: #85918a;
+  --gold: #e3a92b; --gold-ink: #161000; --gold-soft: rgba(227, 169, 43, .16);
+  --ok: #5cc28c; --needs: #d48bbd; --needs-soft: rgba(212, 139, 189, .12);
+  --bad: #f07b6f; --quiet: #8a958e; --focus: rgba(227, 169, 43, .5);
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font: 15px/1.5 var(--sans);
+}
+.wrap { max-width: var(--measure); margin: 0 auto; padding: 28px 16px 64px; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+
+/* -- header ------------------------------------------------------------ */
+header { display: flex; align-items: flex-end; gap: 18px; flex-wrap: wrap; }
+.mark { font-family: var(--deva); font-size: 56px; line-height: .9;
+        font-weight: 600; letter-spacing: -.01em; }
+.mark small { display: block; font: 14px/1.4 var(--sans); color: var(--ink-3);
+              margin-top: 10px; letter-spacing: 0; font-weight: 400; }
+.state-line { margin-left: auto; text-align: right; color: var(--ink-2);
+              font-size: 14px; max-width: 56ch; }
+.state-line b { color: var(--ink); font-weight: 600; }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+       margin-right: 6px; vertical-align: 1px; background: var(--quiet); }
+.dot.on { background: var(--ok); }
+
+/* -- the day: the one bold thing on the page --------------------------- */
+.day { margin: 30px 0 34px; }
+.day h2 { font-size: 14px; font-weight: 600; color: var(--ink-2); margin: 0 0 10px; }
+.strip { position: relative; height: 74px; border-top: 1px solid var(--line);
+         border-bottom: 1px solid var(--line); margin-bottom: 26px; }
+.strip .line { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line); }
+.strip .line.major { background: var(--ink-3); opacity: .45; }
+.strip .hour { position: absolute; bottom: -21px; font-size: 12px; white-space: nowrap;
+               color: var(--ink-3); transform: translateX(-50%);
+               font-variant-numeric: tabular-nums; }
+.strip .hour.first { transform: none; }
+.strip .now { position: absolute; top: -6px; bottom: -6px; left: 0; width: 3px;
+              background: var(--gold); border-radius: 2px; }
+.strip .tick { position: absolute; width: 10px; height: 10px; border-radius: 50%;
+               background: var(--gold); border: 2px solid var(--sheet);
+               transform: translate(-50%, -50%); cursor: pointer; padding: 0; }
+.strip .tick:hover, .strip .tick:focus-visible { transform: translate(-50%, -50%) scale(1.5); }
+.day .empty { color: var(--ink-3); font-size: 14px; margin: 0; }
+
+/* -- toolbar, notices -------------------------------------------------- */
+.bar { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.bar h2 { font-size: 20px; margin: 0; font-weight: 650; }
+.bar .grow { flex: 1; }
+.btn { border: 1px solid var(--line); background: var(--sheet); border-radius: 8px;
+       padding: 7px 12px; cursor: pointer; }
+.btn:hover { border-color: var(--ink-3); }
+.btn.main { background: var(--gold); border-color: var(--gold); color: var(--gold-ink);
+            font-weight: 600; }
+.btn.main:hover { filter: brightness(1.06); }
+.btn.link { border: 0; background: none; padding: 4px 6px; color: var(--ink-2); }
+.btn.link:hover { color: var(--ink); text-decoration: underline; }
+.btn.link.danger:hover { color: var(--bad); }
+.btn[disabled] { opacity: .5; cursor: default; }
+.note { padding: 10px 14px; border-radius: 8px; margin: 0 0 14px;
+        background: var(--sunk); color: var(--ink-2); font-size: 14px; }
+.note.bad { background: rgba(179, 38, 30, .09); color: var(--bad); }
+.hidden { display: none !important; }
+
+/* -- the new-schedule form --------------------------------------------- */
+form.new { background: var(--sheet); border: 1px solid var(--line); border-radius: 12px;
+           padding: 18px; margin-bottom: 18px; display: grid; gap: 14px; }
+label { display: grid; gap: 5px; font-size: 14px; color: var(--ink-2); }
+label > span { font-weight: 600; color: var(--ink); }
+input[type=text], input[type=number], select, textarea {
+  width: 100%; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--paper); padding: 8px 10px; }
+textarea { min-height: 76px; resize: vertical; }
+.said { font-size: 14px; min-height: 1.5em; color: var(--ink-2); }
+.said.ok { color: var(--ink); }
+.said.bad { color: var(--bad); }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+details.more summary { cursor: pointer; color: var(--ink-2); font-size: 14px; }
+details.more[open] summary { margin-bottom: 12px; }
+.actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+/* -- schedules: rows, not cards ---------------------------------------- */
+.list { border-top: 1px solid var(--line); }
+.item { border-bottom: 1px solid var(--line); padding: 16px 0;
+        display: grid; grid-template-columns: 112px 1fr; gap: 6px 18px; }
+.item .when { font-variant-numeric: tabular-nums; }
+.item .when .t { font-size: 26px; font-weight: 650; line-height: 1.05; display: block;
+                 white-space: nowrap; }
+.item .when .t small { font-size: 13px; font-weight: 600; color: var(--ink-2);
+                       margin-left: 3px; }
+.item .when .d { font-size: 13px; color: var(--ink-3); }
+.item.paused .when .t, .item.done .when .t { color: var(--ink-3); font-size: 18px; }
+.item .what { min-width: 0; }
+.item .prompt { font-weight: 600; overflow-wrap: anywhere; }
+.item .sentence { color: var(--ink-2); font-size: 14px; }
+.item .last { font-size: 14px; color: var(--ink-2); margin-top: 6px;
+              overflow-wrap: anywhere; }
+.item .why { margin-top: 8px; padding: 8px 12px; border-radius: 8px; font-size: 14px;
+             background: var(--needs-soft); color: var(--needs); }
+.item .why.mine { background: var(--sunk); color: var(--ink-2); }
+.item .ops { grid-column: 2; display: flex; gap: 2px; flex-wrap: wrap; margin-left: -6px; }
+.item.flash { animation: flash 1.2s ease-out; }
+@keyframes flash { from { background: var(--gold-soft); } to { background: transparent; } }
+
+.out { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 999px;
+       padding: 1px 8px; margin-right: 6px; border: 1px solid currentColor; }
+.out.ok { color: var(--ok); }
+.out.quiet, .out.missed, .out.skipped, .out.busy, .out.interrupted { color: var(--quiet); }
+.out.failed, .out.timed_out { color: var(--bad); }
+.out.needs_person, .out.held { color: var(--needs); }
+.out.running { color: var(--gold); }
+
+/* -- history -------------------------------------------------------------- */
+.history { grid-column: 2; margin-top: 8px; border-left: 2px solid var(--line);
+           padding-left: 14px; }
+.run { padding: 6px 0; font-size: 14px; }
+.run .head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; cursor: pointer;
+             background: none; border: 0; padding: 0; text-align: left; width: 100%; }
+.run .head .time { color: var(--ink-3); font-variant-numeric: tabular-nums; min-width: 9ch; }
+.run .head .sum { color: var(--ink-2); overflow-wrap: anywhere; flex: 1; min-width: 12ch; }
+.run .body { margin: 8px 0 4px; padding: 10px 12px; background: var(--sheet);
+             border: 1px solid var(--line); border-radius: 8px; white-space: pre-wrap;
+             overflow-wrap: anywhere; font-size: 14px; }
+.run .meta { color: var(--ink-3); font-size: 13px; margin-top: 6px; }
+
+@media (max-width: 620px) {
+  .mark { font-size: 44px; }
+  .state-line { margin-left: 0; text-align: left; }
+  .item { grid-template-columns: 1fr; }
+  .item .ops, .history { grid-column: 1; }
+  .item .when .t { font-size: 20px; display: inline; margin-right: 8px; }
+  .row2 { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .item.flash { animation: none; }
+  .strip .tick:hover, .strip .tick:focus-visible { transform: translate(-50%, -50%); }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="mark" lang="hi">समय<small lang="en">samay — the appointed time</small></div>
+    <div class="state-line" id="state">…</div>
+  </header>
+
+  <section class="day" aria-labelledby="day-title">
+    <h2 id="day-title">The next 24 hours</h2>
+    <div class="strip" id="strip" role="list"></div>
+    <p class="empty hidden" id="day-empty">Nothing runs in the next 24 hours.</p>
+  </section>
+
+  <p class="note bad hidden" id="error" role="alert"></p>
+  <p class="note hidden" id="no-token">This page needs the link <code>samay serve</code>
+    printed when it started (the part after <code>#token=</code>). Open that link once and
+    this browser remembers it.</p>
+
+  <div class="bar">
+    <h2>Schedules</h2><span class="grow"></span>
+    <button class="btn main" id="new-btn" type="button">New schedule</button>
+  </div>
+
+  <form class="new hidden" id="new-form" autocomplete="off">
+    <label><span>What should it do each time?</span>
+      <textarea name="prompt" required
+        placeholder="Check my email and tell me about anything that needs a reply today."></textarea>
+    </label>
+    <label><span>When</span>
+      <input type="text" name="when" required placeholder="every 2h, or at 08:00 on weekdays, or once 2026-10-06T15:00">
+    </label>
+    <div class="said" id="said" aria-live="polite"></div>
+    <div class="row2">
+      <label><span>Tell me</span>
+        <select name="notify">
+          <option value="when_new">only when there is something new</option>
+          <option value="always">every time</option>
+          <option value="never">never — I'll read the history</option>
+        </select>
+      </label>
+      <label><span>May use without asking</span>
+        <input type="text" name="allow_tools" placeholder="browser_*, web_fetch">
+      </label>
+    </div>
+    <details class="more">
+      <summary>Which agent, and how it runs</summary>
+      <div class="row2">
+        <label><span>Run</span>
+          <select name="runner">
+            <option value="direct">here, on this machine</option>
+            <option value="dvara">through Dvara, as a person</option>
+          </select>
+        </label>
+        <label><span>Agent</span>
+          <input type="text" name="agent" placeholder="a package folder, or a name on Dvara">
+        </label>
+        <label><span>As (on Dvara)</span>
+          <input type="text" name="as" placeholder="mahen">
+        </label>
+        <label><span>Time limit, seconds</span>
+          <input type="number" name="time_limit" min="30" max="3600" value="600">
+        </label>
+      </div>
+    </details>
+    <div class="actions">
+      <button class="btn" type="button" id="cancel">Cancel</button>
+      <button class="btn main" type="submit">Add schedule</button>
+    </div>
+  </form>
+
+  <div class="list" id="list"></div>
+  <p class="note hidden" id="empty">No schedules yet. Add one, or ask your agent:
+    “check my mail every two hours and tell me if anything needs me.”</p>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, text) => {
+    const node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text !== undefined && text !== null) node.textContent = text;
+    return node;
+  };
+
+  // -- the token: from the link once, then remembered ----------------------
+  let token = "";
+  const fromHash = new URLSearchParams(location.hash.slice(1)).get("token");
+  if (fromHash) {
+    token = fromHash;
+    try { localStorage.setItem("samay-token", token); } catch (_) {}
+    history.replaceState(null, "", location.pathname);
+  } else {
+    try { token = localStorage.getItem("samay-token") || ""; } catch (_) {}
+  }
+
+  async function api(method, path, body) {
+    const response = await fetch("/api/" + path, {
+      method,
+      headers: { "Authorization": "Bearer " + token,
+                 "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.status === 401) {
+      $("no-token").classList.remove("hidden");
+      throw new Error("not signed in");
+    }
+    if (!response.ok) throw new Error(data.detail || response.statusText);
+    return data;
+  }
+
+  function showError(error) {
+    if (error && error.message === "not signed in") return;
+    $("error").textContent = String(error && error.message || error);
+    $("error").classList.remove("hidden");
+  }
+  const clearError = () => $("error").classList.add("hidden");
+
+  // -- times -----------------------------------------------------------------
+  const clock = new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" });
+  const dayName = new Intl.DateTimeFormat(undefined, { weekday: "short", day: "numeric", month: "short" });
+  function dayWord(date) {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const that = new Date(date); that.setHours(0, 0, 0, 0);
+    const diff = Math.round((that - today) / 86400000);
+    if (diff === 0) return "today";
+    if (diff === 1) return "tomorrow";
+    if (diff === -1) return "yesterday";
+    return dayName.format(date);
+  }
+  const when = (iso) => { const d = new Date(iso); return `${dayWord(d)} ${clock.format(d)}`; };
+  // "8:00" large and "AM" small, so a 12-hour clock never wraps the column.
+  function bigTime(date) {
+    const box = el("span", "t");
+    let main = "", period = "";
+    clock.formatToParts(date).forEach((part) => {
+      if (part.type === "dayPeriod") period = part.value;
+      else main += part.value;
+    });
+    box.append(document.createTextNode(main.trim()));
+    if (period) box.append(el("small", null, period));
+    return box;
+  }
+
+  const OUTCOME = {
+    ok: "done", quiet: "nothing new", failed: "failed", needs_person: "needs you",
+    timed_out: "too long", busy: "browser busy", held: "waiting for you",
+    missed: "missed", skipped: "skipped", interrupted: "interrupted", running: "running",
+  };
+  const chip = (outcome) => el("span", "out " + outcome, OUTCOME[outcome] || outcome);
+
+  // -- the day ---------------------------------------------------------------
+  function drawDay(cards) {
+    const strip = $("strip");
+    strip.replaceChildren();
+    const start = Date.now(), span = 86400000;
+    // Lines on the real hours, a darker one and a label every six (midnight,
+    // 6, noon, 18): a schedule at 08:00 should sit where 08:00 is.
+    const hourOnly = new Intl.DateTimeFormat(undefined, { hour: "numeric" });
+    const first = new Date(start); first.setMinutes(0, 0, 0);
+    for (let t = first.getTime() + 3600000; t < start + span; t += 3600000) {
+      const at = new Date(t), left = ((t - start) / span * 100) + "%";
+      const major = at.getHours() % 6 === 0;
+      const line = el("div", "line" + (major ? " major" : ""));
+      line.style.left = left;
+      strip.append(line);
+      // Kept clear of "now" at the left and of the right edge.
+      if (major && t - start > span * 0.14 && start + span - t > span * 0.05) {
+        const label = el("span", "hour", hourOnly.format(at));
+        label.style.left = left;
+        strip.append(label);
+      }
+    }
+    const nowLabel = el("span", "hour first", "now");
+    nowLabel.style.left = "0";
+    const now = el("div", "now"); now.title = "now";
+    strip.append(now, nowLabel);
+    const lanes = new Map();
+    let count = 0;
+    cards.forEach((card) => {
+      if (!lanes.has(card.id)) lanes.set(card.id, lanes.size);
+      const lane = lanes.get(card.id);
+      (card.upcoming || []).forEach((iso) => {
+        const t = new Date(iso).getTime();
+        if (t < start || t > start + span) return;
+        const tick = el("button", "tick");
+        tick.type = "button";
+        tick.style.left = ((t - start) / span * 100) + "%";
+        tick.style.top = (18 + (lane % 4) * 13) + "px";
+        const name = card.prompt.length > 60 ? card.prompt.slice(0, 59) + "…" : card.prompt;
+        tick.title = `${clock.format(new Date(t))} — ${name}`;
+        tick.setAttribute("aria-label", tick.title);
+        tick.setAttribute("role", "listitem");
+        tick.addEventListener("click", () => focusItem(card.id));
+        strip.append(tick);
+        count += 1;
+      });
+    });
+    $("day-empty").classList.toggle("hidden", count > 0);
+  }
+
+  function focusItem(id) {
+    const item = document.querySelector(`[data-id="${CSS.escape(id)}"]`);
+    if (!item) return;
+    item.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
+    item.classList.remove("flash"); void item.offsetWidth; item.classList.add("flash");
+  }
+
+  // -- the list --------------------------------------------------------------
+  const open = new Set();      // schedules whose history is showing
+
+  function drawList(cards) {
+    const list = $("list");
+    list.replaceChildren();
+    $("empty").classList.toggle("hidden", cards.length > 0);
+    const order = { active: 0, paused: 1, done: 2 };
+    cards.sort((a, b) => (order[a.state] - order[b.state])
+      || String(a.next_at || "~").localeCompare(String(b.next_at || "~")));
+    cards.forEach((card) => list.append(item(card)));
+  }
+
+  function item(card) {
+    const row = el("article", "item " + card.state);
+    row.dataset.id = card.id;
+    const whenBox = el("div", "when");
+    if (card.state === "active" && card.next_at) {
+      const next = new Date(card.next_at);
+      whenBox.append(bigTime(next), el("span", "d", dayWord(next)));
+    } else {
+      whenBox.append(el("span", "t", card.state === "paused" ? "Paused" : "Finished"));
+    }
+    const what = el("div", "what");
+    what.append(el("div", "prompt", card.prompt), el("div", "sentence", card.sentence));
+    const last = card.last_run;
+    if (last) {
+      const line = el("div", "last");
+      line.append(chip(last.outcome), document.createTextNode(
+        `${when(last.started_at || last.due_at)}${last.summary ? " — " + last.summary : ""}`));
+      what.append(line);
+    } else {
+      what.append(el("div", "last", "Hasn't run yet."));
+    }
+    if (card.paused_because) {
+      const mine = card.paused_because === "paused by you";
+      what.append(el("div", mine ? "why mine" : "why", card.paused_because));
+    }
+
+    const ops = el("div", "ops");
+    const op = (label, fn, extra) => {
+      const b = el("button", "btn link" + (extra ? " " + extra : ""), label);
+      b.type = "button";
+      b.addEventListener("click", async () => {
+        b.disabled = true;
+        try { clearError(); await fn(); await refresh(); }
+        catch (e) { showError(e); }
+        finally { b.disabled = false; }
+      });
+      ops.append(b);
+    };
+    if (card.state !== "done") op("Run now", () => api("POST", `schedules/${card.id}/run`));
+    if (card.state === "active") op("Pause", () => api("POST", `schedules/${card.id}/pause`));
+    if (card.state === "paused") op("Resume", () => api("POST", `schedules/${card.id}/resume`));
+    op(open.has(card.id) ? "Hide history" : "History", async () => {
+      if (open.has(card.id)) open.delete(card.id); else open.add(card.id);
+    });
+    op("Delete", async () => {
+      if (!confirm(`Delete this schedule and its history?\n\n${card.prompt}`)) return;
+      await api("DELETE", `schedules/${card.id}`);
+      open.delete(card.id);
+    }, "danger");
+
+    row.append(whenBox, what, ops);
+    if (open.has(card.id)) {
+      const box = el("div", "history", "Loading…");
+      row.append(box);
+      loadHistory(card.id, box);
+    }
+    return row;
+  }
+
+  async function loadHistory(id, box) {
+    try {
+      const { runs } = await api("GET", `runs?schedule=${encodeURIComponent(id)}&limit=30`);
+      box.replaceChildren();
+      if (!runs.length) { box.textContent = "No runs yet."; return; }
+      runs.forEach((run) => {
+        const entry = el("div", "run");
+        const head = el("button", "head");
+        head.type = "button";
+        head.setAttribute("aria-expanded", "false");
+        head.append(el("span", "time", when(run.due_at)), chip(run.outcome),
+                    el("span", "sum", run.summary || run.detail || ""));
+        const body = el("div", "body hidden");
+        body.textContent = run.reply || run.detail || "(no answer)";
+        const meta = [];
+        if (run.needs && run.needs.length) meta.push("Needs: " + run.needs.join("; "));
+        if (run.refused && run.refused.length) meta.push("Not allowed: " + run.refused.join(", "));
+        if (run.cost_usd) meta.push("Cost: $" + run.cost_usd.toFixed(4));
+        if (run.notified) meta.push("Sent to you");
+        if (run.dvara_run_id) meta.push("Dvara run " + run.dvara_run_id);
+        if (run.detail && run.reply) meta.push(run.detail);
+        if (meta.length) body.append(el("div", "meta", meta.join(". ") + "."));
+        head.addEventListener("click", () => {
+          const shut = body.classList.toggle("hidden");
+          head.setAttribute("aria-expanded", String(!shut));
+        });
+        entry.append(head, body);
+        box.append(entry);
+      });
+    } catch (e) { box.textContent = "Could not load: " + e.message; }
+  }
+
+  // -- the state line ----------------------------------------------------------
+  function drawState(status) {
+    const line = $("state");
+    line.replaceChildren();
+    const dot = el("span", "dot" + (status.serving ? " on" : ""));
+    const c = status.schedules || {};
+    line.append(dot, el("b", null, status.serving ? "Clock running" : "Clock stopped"),
+      document.createTextNode(`. ${c.active || 0} active, ${c.paused || 0} paused. `),
+      document.createTextNode(status.dvara
+        ? "Answers go to your channels through Dvara."
+        : "Answers are kept here; nothing is sent."));
+  }
+
+  // -- the form ----------------------------------------------------------------
+  const form = $("new-form");
+  $("new-btn").addEventListener("click", () => {
+    form.classList.toggle("hidden");
+    if (!form.classList.contains("hidden")) form.prompt.focus();
+  });
+  $("cancel").addEventListener("click", () => { form.reset(); $("said").textContent = ""; form.classList.add("hidden"); });
+
+  let previewTimer = 0;
+  form.when.addEventListener("input", () => {
+    clearTimeout(previewTimer);
+    const said = $("said");
+    const text = form.when.value.trim();
+    if (!text) { said.textContent = ""; return; }
+    previewTimer = setTimeout(async () => {
+      try {
+        const result = await api("POST", "preview", { when: text });
+        said.className = "said ok"; said.textContent = result.sentence;
+      } catch (e) { said.className = "said bad"; said.textContent = e.message; }
+    }, 350);
+  });
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(form).entries());
+    data.allow_tools = (data.allow_tools || "").split(",").map((s) => s.trim()).filter(Boolean);
+    try {
+      clearError();
+      const made = await api("POST", "schedules", data);
+      form.reset(); $("said").textContent = ""; form.classList.add("hidden");
+      await refresh();
+      focusItem(made.id);
+    } catch (e) { showError(e); }
+  });
+
+  // -- refresh -----------------------------------------------------------------
+  async function refresh() {
+    if (!token) { $("no-token").classList.remove("hidden"); return; }
+    const [status, list] = await Promise.all([api("GET", "status"), api("GET", "schedules")]);
+    $("no-token").classList.add("hidden");
+    drawState(status);
+    drawDay(list.schedules);
+    drawList(list.schedules);
+  }
+  refresh().catch(showError);
+  setInterval(() => { if (!document.hidden) refresh().catch(() => {}); }, 20000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh().catch(() => {}); });
+})();
+</script>
+</body>
+</html>

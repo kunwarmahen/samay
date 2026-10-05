@@ -9,16 +9,19 @@
     samay runs [ID]                             what happened, newest first
     samay pause ID | resume ID | rm ID
     samay run-now ID                            once, now, here -- and wait for it
-    samay serve                                 the clock: runs what is due, until stopped
+    samay serve [--port 8780]                   the clock, and its page, until stopped
+    samay mcp --for WHO [--agent A]             the tools an agent uses (MCP, stdio)
+    samay status [--json]                       is the clock running, and where
 
 ``--when`` takes the short form (``every 30m between 09:00-18:00 on
 mon-fri``, ``at 08:00,20:00``, ``once 2026-10-06T15:00``, ``cron 0 */2 *
 * *``) or the same thing as JSON (``{"every": "3h"}``) -- which is what
 an agent sends.
 
-``samay serve`` has to be running for anything to run on time. The
-other commands only read and change the file, so they work whether it
-is running or not, and it notices a new schedule within half a minute.
+``samay serve`` has to be running for anything to run on time; it also
+serves the page (http.py) at the address it prints. The other commands
+only read and change the file, so they work whether it is running or
+not, and it notices a new schedule within half a minute.
 
 State lives in ``~/.samay`` (``--state`` or ``$SAMAY_STATE``). Which
 Yantra runs the work: ``$SAMAY_YANTRA`` (the command) and
@@ -36,10 +39,12 @@ import threading
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from samay import __version__, schedules
+from samay import __version__, mcp, schedules
 from samay.clock import Clock
 from samay.dvara import Dvara, DvaraError, DvaraNotifier, DvaraRunner
+from samay.http import DEFAULT_PORT, Api, SamayServer, serve_token
 from samay.runners import DirectRunner
+from samay.status import report, serving
 from samay.store import NOTIFY, Run, Schedule, Store, from_iso
 
 
@@ -114,7 +119,27 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--limit", type=int, default=20)
     p.add_argument("--json", action="store_true", dest="json_out")
 
-    sub.add_parser("serve", help="the clock: run what is due, until stopped")
+    p = sub.add_parser("serve", help="the clock, and its page: run what is "
+                                     "due, until stopped")
+    p.add_argument("--host", default="127.0.0.1",
+                   help="localhost by default; reaching the network is a "
+                        "decision, not a default")
+    p.add_argument("--port", type=int, default=DEFAULT_PORT,
+                   help=f"the page and its API (default {DEFAULT_PORT}; 0 for "
+                        "no page)")
+
+    p = sub.add_parser("mcp", help="the tools an agent uses to make "
+                                   "schedules, for one person (stdio)")
+    p.add_argument("--for", dest="person", required=True, metavar="WHO",
+                   help="whose schedules: 'local' here, or a person on "
+                        "Dvara's actors file")
+    p.add_argument("--agent", default="", metavar="DIR|NAME",
+                   help="the agent a schedule made here runs")
+    p.add_argument("--runner", choices=("direct", "dvara"), default=None,
+                   help="default: dvara for a Dvara person, direct for local")
+
+    p = sub.add_parser("status", help="is the clock running, and where")
+    p.add_argument("--json", action="store_true", dest="json_out")
     return parser
 
 
@@ -180,7 +205,25 @@ def _dispatch(args, store: Store, state: Path) -> int:
             _print_run(run, zones.get(run.schedule), with_schedule=not args.id)
         return 0
     if cmd == "serve":
-        return _serve(store, state)
+        return _serve(store, state, host=args.host, port=args.port)
+    if cmd == "mcp":
+        tools = mcp.Tools(store, state, person=args.person, agent=args.agent,
+                          runner=args.runner, dvara=_dvara())
+        mcp.serve(tools)
+        return 0
+    if cmd == "status":
+        said = report(state, store)
+        if args.json_out:
+            print(json.dumps(said))
+        else:
+            counts = said["schedules"]
+            print(f"samay {said['version']}: "
+                  + (f"serving at {said['url']}" if said["serving"]
+                     else "the clock is not running (samay serve)"))
+            print(f"  {counts['active']} active, {counts['paused']} paused, "
+                  f"{counts['done']} done; state in {said['state']}")
+            print("  answers go to " + (said["dvara"] or "nobody (no Dvara set)"))
+        return 0
 
     schedule = schedules.find(store, args.id)
     if cmd == "show":
@@ -249,28 +292,24 @@ def _notifier() -> DvaraNotifier | None:
 # -- serve -------------------------------------------------------------------
 
 
-def _pid_file(state: Path) -> Path:
-    return state / "serve.pid"
+def _serve_file(state: Path) -> Path:
+    return state / "serve.json"
 
 
 def _serving(state: Path) -> bool:
-    try:
-        pid = int(_pid_file(state).read_text().strip())
-        os.kill(pid, 0)
-        return True
-    except (OSError, ValueError):
-        return False
+    return serving(state) is not None
 
 
-def _serve(store: Store, state: Path) -> int:
+def _serve(store: Store, state: Path, *, host: str, port: int) -> int:
     if _serving(state):
         print(f"error: samay serve is already running for {state}",
               file=sys.stderr)
         return 2
+    clock = None
+    server = None
     stop = threading.Event()
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, lambda *_: stop.set())
-    _pid_file(state).write_text(str(os.getpid()))
 
     def log(schedule: Schedule, run: Run) -> None:
         _print_run(run, ZoneInfo(schedule.tz), with_schedule=True)
@@ -281,6 +320,8 @@ def _serve(store: Store, state: Path) -> int:
         dvara = _dvara()
         print(f"samay {__version__}: {len(active)} active schedule(s), "
               f"state in {state}")
+        if server is not None:
+            print(f"page: {server.page_url}")
         print(f"answers go to: {dvara.url} (/notify)" if dvara else
               "answers go nowhere: set SAMAY_DVARA_URL to send them to "
               "people's channels; until then they are only kept")
@@ -290,11 +331,25 @@ def _serve(store: Store, state: Path) -> int:
         sys.stdout.flush()
 
     clock = Clock(store, _runners(state), notifier=_notifier(), on_record=log)
+    if port:
+        try:
+            server = SamayServer(Api(store, clock, state, _dvara()),
+                                 serve_token(state), host=host, port=port)
+        except (OSError, ValueError) as exc:
+            clock.close()
+            print(f"error: cannot serve the page on {host}:{port}: {exc}",
+                  file=sys.stderr)
+            return 2
+        server.start()
+    _serve_file(state).write_text(json.dumps(
+        {"pid": os.getpid(), "url": server.url if server else None}))
     try:
         clock.serve(stop, on_start=started)
     finally:
+        if server is not None:
+            server.stop()
         clock.close()
-        _pid_file(state).unlink(missing_ok=True)
+        _serve_file(state).unlink(missing_ok=True)
     print("stopped")
     return 0
 
@@ -303,12 +358,7 @@ def _serve(store: Store, state: Path) -> int:
 
 
 def _card(schedule: Schedule, store: Store | None = None) -> dict:
-    card = schedule.as_dict()
-    card["sentence"] = schedules.sentence(schedule)
-    if store is not None:
-        last = store.runs(schedule.id, limit=1)
-        card["last_run"] = last[0].as_dict() if last else None
-    return card
+    return schedules.card(schedule, store)
 
 
 def _short(moment: str | None, zone: ZoneInfo | None) -> str:

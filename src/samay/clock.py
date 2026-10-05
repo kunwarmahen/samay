@@ -196,14 +196,17 @@ class Clock:
     def run_now(self, schedule_id: str) -> Run:
         """Run one schedule at once, here, and wait for it. Its next time
         is left alone: this is an extra run, not the next one early."""
+        return self.start_now(schedule_id).result()
+
+    def start_now(self, schedule_id: str) -> Future:
+        """The same extra run, started and not waited for -- what a page
+        asks for, since a run can take minutes and a request should not."""
         schedule = self.store.get(schedule_id)
         if schedule is None:
             raise KeyError(schedule_id)
         if self._busy(schedule):
             raise RuntimeError(f"{schedule.id} is running already")
-        with self._lock:
-            self._running.add(schedule.id)
-        return self._execute(schedule, self.now())
+        return self._submit(schedule, self.now())
 
     # -- one run -----------------------------------------------------------
 
