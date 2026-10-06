@@ -128,6 +128,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--port", type=int, default=DEFAULT_PORT,
                    help=f"the page and its API (default {DEFAULT_PORT}; 0 for "
                         "no page)")
+    p.add_argument("--public-url", default=None, metavar="URL",
+                   help="where a browser reaches the page, when that is not "
+                        "where it is bound -- a container's port mapping or a "
+                        "proxy (also $SAMAY_PUBLIC_URL)")
 
     p = sub.add_parser("mcp", help="the tools an agent uses to make "
                                    "schedules, for one person (stdio)")
@@ -213,7 +217,8 @@ def _dispatch(args, store: Store, state: Path) -> int:
             _print_run(run, zones.get(run.schedule), with_schedule=not args.id)
         return 0
     if cmd == "serve":
-        return _serve(store, state, host=args.host, port=args.port)
+        return _serve(store, state, host=args.host, port=args.port,
+                      public_url=args.public_url)
     if cmd == "mcp":
         tools = mcp.Tools(store, state, person=args.person, agent=args.agent,
                           runner=args.runner, dvara=_dvara())
@@ -326,7 +331,8 @@ def _serving(state: Path) -> bool:
     return serving(state) is not None
 
 
-def _serve(store: Store, state: Path, *, host: str, port: int) -> int:
+def _serve(store: Store, state: Path, *, host: str, port: int,
+           public_url: str | None = None) -> int:
     held = hold_clock(state)       # kept open (and so held) until this process ends
     if held is None:
         print(f"error: samay serve is already running for {state}",
@@ -361,7 +367,8 @@ def _serve(store: Store, state: Path, *, host: str, port: int) -> int:
     if port:
         try:
             server = SamayServer(Api(store, clock, state, _dvara()),
-                                 serve_token(state), host=host, port=port)
+                                 serve_token(state), host=host, port=port,
+                                 public_url=public_url)
         except (OSError, ValueError) as exc:
             clock.close()
             print(f"error: cannot serve the page on {host}:{port}: {exc}",

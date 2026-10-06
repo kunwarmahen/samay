@@ -350,6 +350,7 @@ is saved.
 | `SAMAY_DVARA_ACTOR` | the person a schedule made here runs as and is sent to, when `--as` isn't given |
 | `SAMAY_MAX_SCHEDULES` | how many schedules one person may have (default 20) |
 | `SAMAY_TOKEN` | the page's token, instead of the one Samay makes and keeps in the state folder |
+| `SAMAY_PUBLIC_URL` | where a browser reaches the page when that isn't where `samay serve` is bound -- a container's port mapping, a proxy (also `--public-url`). Bound to `0.0.0.0` without it, the page reports `127.0.0.1` |
 
 Everything is in one SQLite file, `~/.samay/samay.sqlite3`, readable
 with the `sqlite3` shell. Each schedule's runs work in a folder of

@@ -188,6 +188,19 @@ def _int(value, name: str) -> int:
         raise ApiError(400, f"{name} must be a whole number") from None
 
 
+def public_address(raw: str | None) -> str | None:
+    """``$SAMAY_PUBLIC_URL`` or ``--public-url``, checked: an address a
+    browser can open, ending in one slash. None when not given."""
+    raw = (raw if raw is not None else os.environ.get("SAMAY_PUBLIC_URL", "")).strip()
+    if not raw:
+        return None
+    parsed = urlparse(raw)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        raise ValueError(f"the page's public address must look like "
+                         f"http://host:port/ -- got {raw!r}")
+    return raw.rstrip("/") + "/"
+
+
 def page() -> bytes:
     return files("samay").joinpath("static/index.html").read_bytes()
 
@@ -196,9 +209,10 @@ class SamayServer:
     """The API and the page, on a thread of their own beside the clock."""
 
     def __init__(self, api: Api, token: str, *, host: str = "127.0.0.1",
-                 port: int = DEFAULT_PORT) -> None:
+                 port: int = DEFAULT_PORT, public_url: str | None = None) -> None:
         self.api = api
         self.token = token
+        self.public_url = public_address(public_url)
         handler = _handler(self)
         self.httpd = ThreadingHTTPServer((host, port), handler)
         self.httpd.daemon_threads = True
@@ -206,7 +220,16 @@ class SamayServer:
 
     @property
     def url(self) -> str:
+        """Where a browser reaches the page -- not always where it is bound.
+        Bound to every address (0.0.0.0, a container's usual), this
+        machine reaches it at 127.0.0.1; behind a port mapping or a proxy,
+        only the operator knows the address, and says it with
+        ``--public-url`` / ``$SAMAY_PUBLIC_URL``."""
+        if self.public_url:
+            return self.public_url
         host, port = self.httpd.server_address[:2]
+        if host in ("0.0.0.0", "::"):
+            host = "127.0.0.1"
         return f"http://{host}:{port}/"
 
     @property

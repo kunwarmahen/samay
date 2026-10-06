@@ -24,7 +24,7 @@ import pytest
 
 from samay import schedules
 from samay.clock import Clock
-from samay.http import Api, SamayServer, serve_token
+from samay.http import Api, SamayServer, public_address, serve_token
 from samay.runners import RunResult
 from samay.store import Store, now_utc
 
@@ -180,3 +180,50 @@ class TestTheDayAhead:
                                 now=now_utc() - timedelta(minutes=1))
         times = schedules.card(made)["upcoming"]
         assert 4 <= len(times) <= 5
+
+
+class TestTheAddressABrowserOpens:
+    """Bound is not reached. From a container Samay binds 0.0.0.0, and the
+    link it printed -- and that Yantra's Schedules panel opened -- went
+    to an address no browser can use."""
+
+    def server(self, tmp_path, monkeypatch, **kw):
+        monkeypatch.delenv("SAMAY_PUBLIC_URL", raising=False)
+        store = Store(tmp_path / "s.sqlite3")
+        clock = Clock(store, {})
+        server = SamayServer(Api(store, clock, tmp_path), TOKEN, port=0, **kw)
+        return server, clock
+
+    def test_every_address_is_reached_here_at_localhost(self, tmp_path, monkeypatch):
+        server, clock = self.server(tmp_path, monkeypatch, host="0.0.0.0")
+        try:
+            assert server.url.startswith("http://127.0.0.1:")
+        finally:
+            server.httpd.server_close()
+            clock.close()
+
+    def test_a_public_address_is_what_it_says(self, tmp_path, monkeypatch):
+        server, clock = self.server(tmp_path, monkeypatch, host="0.0.0.0",
+                                    public_url="http://127.0.0.1:18780")
+        try:
+            assert server.url == "http://127.0.0.1:18780/"
+            assert server.page_url == f"http://127.0.0.1:18780/#token={TOKEN}"
+        finally:
+            server.httpd.server_close()
+            clock.close()
+
+    def test_the_environment_can_say_it(self, tmp_path, monkeypatch):
+        store = Store(tmp_path / "s.sqlite3")
+        clock = Clock(store, {})
+        monkeypatch.setenv("SAMAY_PUBLIC_URL", "https://samay.example/")
+        server = SamayServer(Api(store, clock, tmp_path), TOKEN, port=0)
+        try:
+            assert server.url == "https://samay.example/"
+        finally:
+            server.httpd.server_close()
+            clock.close()
+
+    @pytest.mark.parametrize("bad", ["samay.example", "ftp://x/", "http://"])
+    def test_an_address_a_browser_cannot_open_is_refused(self, bad):
+        with pytest.raises(ValueError):
+            public_address(bad)
