@@ -47,7 +47,9 @@ how an answer reaches somebody who wasn't asked;
 [03 — offered, then accepted](notes/03-offered-then-accepted.md), the
 page, and the tools an agent uses to suggest a schedule;
 [04 — new against what was told](notes/04-new-against-what-was-told.md),
-what a `when_new` run is shown so it can tell what's new.
+what a `when_new` run is shown so it can tell what's new;
+[05 — a lock, not a pid](notes/05-a-lock-not-a-pid.md), how "is the
+clock running?" stays right after a crash and from another container.
 
 ## Works with
 
@@ -373,7 +375,8 @@ src/samay/
 │                 a token on every call, localhost by default
 ├── static/       the page: one file, no fonts or scripts fetched from anywhere
 ├── mcp.py        the agent's tools, for one person (stdio MCP, by hand)
-├── status.py     samay status --json: is it here, is the clock running,
+├── status.py     samay status --json: is it here, is the clock running (a
+│                 lock it holds, notes/05),
 │                 how to start the tools
 ├── unit.py       samay unit: a systemd user unit for samay serve, and an env
 │                 file (yours alone) with the settings a service would lack

@@ -12,6 +12,18 @@ ONE ANSWER, TWO ROADS. A harness with Samay in its own Python calls
 ``report()``; one without runs the command and reads the JSON. Both go
 through this function, so they cannot disagree.
 
+THE CLOCK HOLDS A LOCK, NOT A PID. ``samay serve`` takes an exclusive
+``flock`` on ``serve.lock`` for as long as it runs, and "is it serving?"
+is "is that lock held?". A pid written to a file says nothing once the
+process is gone. After a crash, the number may belong to something else
+-- in a fresh container, often the new ``samay serve`` itself, since
+pids start again at 1 -- and the clock would refuse to start because it
+believed it was already running. And a pid means nothing at all to a
+program in another container. A lock is released by the kernel however
+its holder dies, and every process that opens the same file sees it,
+whichever namespace it is in. Taking it is also the check, so two
+``samay serve`` started at once cannot both win.
+
 NO SECRET IS IN IT. The page's token is not here; a harness that wants
 the page sends the person to ``samay serve``'s own printed address. The
 ``format`` field names the shape, and a reader should refuse one it does
@@ -20,6 +32,7 @@ not know rather than guess.
 
 from __future__ import annotations
 
+import fcntl
 import json
 import os
 import shutil
@@ -39,14 +52,38 @@ def samay_command() -> str:
     return shutil.which("samay") or "samay"
 
 
+LOCK_FILE = "serve.lock"
+
+
+def hold_clock(state: Path):
+    """Take the clock's lock for this process's lifetime; the open file
+    (keep it open), or None when another ``samay serve`` holds it."""
+    held = open(state / LOCK_FILE, "a")  # noqa: SIM115 -- held until exit
+    try:
+        fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        held.close()
+        return None
+    return held
+
+
 def serving(state: Path) -> dict | None:
     """What ``samay serve`` wrote when it started, if it is still running."""
     try:
-        info = json.loads((state / "serve.json").read_text())
-        os.kill(int(info["pid"]), 0)
-        return info
-    except (OSError, ValueError, KeyError, TypeError):
+        with open(state / LOCK_FILE) as lock:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_SH | fcntl.LOCK_NB)
+            except BlockingIOError:
+                pass                          # held: the clock is running
+            else:
+                return None                   # nobody holds it
+    except OSError:
         return None
+    try:
+        info = json.loads((state / "serve.json").read_text())
+    except (OSError, ValueError):
+        info = {}
+    return info if isinstance(info, dict) else {}
 
 
 def report(state: Path, store: Store) -> dict:

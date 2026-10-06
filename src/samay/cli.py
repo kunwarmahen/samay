@@ -45,7 +45,7 @@ from samay.clock import Clock
 from samay.dvara import Dvara, DvaraError, DvaraNotifier, DvaraRunner
 from samay.http import DEFAULT_PORT, Api, SamayServer, serve_token
 from samay.runners import DirectRunner
-from samay.status import report, samay_command, serving
+from samay.status import hold_clock, report, samay_command, serving
 from samay.store import NOTIFY, Run, Schedule, Store, from_iso
 
 
@@ -327,7 +327,8 @@ def _serving(state: Path) -> bool:
 
 
 def _serve(store: Store, state: Path, *, host: str, port: int) -> int:
-    if _serving(state):
+    held = hold_clock(state)       # kept open (and so held) until this process ends
+    if held is None:
         print(f"error: samay serve is already running for {state}",
               file=sys.stderr)
         return 2
