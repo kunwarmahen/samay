@@ -70,6 +70,9 @@ class RunResult:
     #: The turn stopped to wait for the person's approval (the Dvara road:
     #: they were asked, and have not answered yet).
     held: bool = False
+    #: Not run at all, and why (``detail``): the phone was in use, or
+    #: stayed locked. Not a failure.
+    skipped: bool = False
     dvara_run_id: str = ""
 
 

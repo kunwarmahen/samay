@@ -97,6 +97,18 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--time-limit", type=int,
                    default=schedules.DEFAULT_TIME_LIMIT, metavar="SECONDS",
                    dest="time_limit")
+    p.add_argument("--phone", action="store_true",
+                   help="it works the person's phone (the Dvara road): Dvara "
+                        "checks the phone is free, then gives the run its tools")
+    p.add_argument("--phone-step", action="append", default=[], metavar="SENTENCE",
+                   dest="phone_steps",
+                   help="a held step on the phone it may do without asking "
+                        "(repeatable), e.g. 'send in Messages when the screen "
+                        "shows 555-0123'; the Dvara road")
+    p.add_argument("--wait", type=int, default=schedules.DEFAULT_WAIT,
+                   metavar="MINUTES",
+                   help="how long its questions may wait for the person, in "
+                        f"all (default {schedules.DEFAULT_WAIT})")
     p.add_argument("--browser-profile", default="", metavar="DIR",
                    dest="browser_profile",
                    help="a browser profile of this schedule's own (sign in "
@@ -142,6 +154,9 @@ def build_parser() -> argparse.ArgumentParser:
                    help="the agent a schedule made here runs")
     p.add_argument("--runner", choices=("direct", "dvara"), default=None,
                    help="default: dvara for a Dvara person, direct for local")
+    p.add_argument("--phone", action="store_true",
+                   help="this turn has the person's phone: a schedule made "
+                        "here works it too (Dvara passes it)")
 
     p = sub.add_parser("unit", help="a systemd user unit that keeps samay "
                                     "serve running; prints it, or --install")
@@ -182,7 +197,9 @@ def _dispatch(args, store: Store, state: Path) -> int:
             agent=args.agent, notify=args.notify, allow_tools=args.allow_tools,
             time_limit=args.time_limit, browser_profile=args.browser_profile,
             runner=args.runner, owner=args.as_actor or schedules.LOCAL_OWNER,
-            dvara=_dvara() if args.runner == "dvara" else None)
+            dvara=_dvara() if args.runner == "dvara" else None,
+            phone=args.phone or bool(args.phone_steps),
+            phone_steps=args.phone_steps, wait=args.wait)
         if args.json_out:
             print(json.dumps(_card(schedule)))
         else:
@@ -221,7 +238,7 @@ def _dispatch(args, store: Store, state: Path) -> int:
                       public_url=args.public_url)
     if cmd == "mcp":
         tools = mcp.Tools(store, state, person=args.person, agent=args.agent,
-                          runner=args.runner, dvara=_dvara())
+                          runner=args.runner, dvara=_dvara(), phone=args.phone)
         mcp.serve(tools)
         return 0
     if cmd == "unit":
@@ -420,6 +437,12 @@ def _print_schedule(schedule: Schedule, store: Store, full: bool = False) -> Non
             print(f"          agent: {schedule.agent}")
         if schedule.allow_tools:
             print(f"          allowed: {', '.join(schedule.allow_tools)}")
+        if schedule.phone:
+            print("          works your phone")
+        for step in schedule.phone_steps:
+            print(f"          on the phone, unasked: {step}")
+        if schedule.runner == "dvara":
+            print(f"          questions wait: {schedule.wait} min")
         if schedule.browser_profile:
             print(f"          browser profile: {schedule.browser_profile}")
         print(f"          made {_short(schedule.created_at, zone)} "
@@ -434,8 +457,14 @@ def _print_run(run: Run, zone: ZoneInfo | None, with_schedule: bool) -> None:
           f"{cost}{sent}  {_clip(run.summary, 70)}".rstrip())
     for need in run.needs:
         print(f"{' ' * len(head)}    needs: {need}")
-    if run.refused:
-        print(f"{' ' * len(head)}    not allowed: {', '.join(run.refused)} "
+    # A refusal with its words after the name was a question nobody
+    # answered in the schedule's wait (Dvara); a bare name was not allowed.
+    asked = [r for r in run.refused if ": " in r]
+    refused = [r for r in run.refused if ": " not in r]
+    for line in asked:
+        print(f"{' ' * len(head)}    asked, not answered: {line}")
+    if refused:
+        print(f"{' ' * len(head)}    not allowed: {', '.join(refused)} "
               "(allow with --allow-tools when adding)")
 
 

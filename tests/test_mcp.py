@@ -168,3 +168,13 @@ class TestTheProtocol:
         assert len(replies[1]["result"]["tools"]) == 7
         assert replies[2]["result"]["content"][0]["text"].startswith("Saved ")
         assert len(Store(tmp_path / "samay.sqlite3").schedules()) == 1
+
+
+def test_a_turn_with_the_phone_makes_schedules_that_work_it(store, tmp_path):
+    """--phone (from Dvara): a schedule made here is a phone schedule --
+    on the direct road, which has no phone, that is said, not saved."""
+    with_phone = tools_for(store, tmp_path, phone=True)
+    failed, said = call(with_phone, "create_schedule", prompt="p", when="every 1h",
+                        phone_steps=["send in Messages when the screen shows 555-0123"])
+    assert failed and "Dvara road" in said
+    assert with_phone.phone and not tools_for(store, tmp_path).phone

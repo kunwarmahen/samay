@@ -171,7 +171,10 @@ class Api:
             time_limit=_int(body.get("time_limit")
                             or schedules.DEFAULT_TIME_LIMIT, "time_limit"),
             browser_profile=str(body.get("browser_profile") or ""),
-            created_via="page", dvara=self.dvara if runner == "dvara" else None)
+            created_via="page", dvara=self.dvara if runner == "dvara" else None,
+            phone=bool(body.get("phone")) or bool(body.get("phone_steps")),
+            phone_steps=_sentences(body.get("phone_steps")),
+            wait=_int(body.get("wait") or schedules.DEFAULT_WAIT, "wait"))
 
 
 def _need(body: dict, key: str):
@@ -311,3 +314,11 @@ def _handler(server: SamayServer):
             self._dispatch("DELETE")
 
     return Handler
+
+
+def _sentences(value) -> list[str]:
+    if value in (None, ""):
+        return []
+    if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+        raise ApiError(400, "phone_steps is a list of sentences")
+    return value

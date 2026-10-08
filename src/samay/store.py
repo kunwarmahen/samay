@@ -82,6 +82,16 @@ class Schedule:
     created_via: str = "cli"
     next_at: str | None = None
     failures: int = 0                # in a row; reset by any run that finished
+    #: It works the person's phone (made in a turn that had it): Dvara
+    #: gives such a run the phone, after checking it is free.
+    phone: bool = False
+    #: Held taps on the phone this may do without asking, as the person
+    #: accepted them: "send in Messages when the screen shows 555-0123"
+    #: (Sparsh checks each one). The Dvara road only.
+    phone_steps: list[str] = field(default_factory=list)
+    #: Minutes a question this run asks may wait for the person, in all;
+    #: and how long a locked phone is waited on (Dvara).
+    wait: int = 30
 
     def as_dict(self) -> dict:
         return asdict(self)
@@ -111,7 +121,14 @@ class Run:
         return asdict(self)
 
 
-_LIST_COLUMNS = {"when", "allow_tools", "needs", "refused"}
+_LIST_COLUMNS = {"when", "allow_tools", "needs", "refused", "phone_steps"}
+
+#: Columns added after a file may already exist: (table, column, its SQL).
+#: Added to an older file when it is opened, with the default every
+#: earlier schedule had in effect.
+_ADDED = (("schedule", "phone", "INTEGER NOT NULL DEFAULT 0"),
+          ("schedule", "phone_steps", "TEXT NOT NULL DEFAULT '[]'"),
+          ("schedule", "wait", "INTEGER NOT NULL DEFAULT 30"))
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS schedule (
@@ -131,7 +148,10 @@ CREATE TABLE IF NOT EXISTS schedule (
     created_at TEXT NOT NULL,
     created_via TEXT NOT NULL,
     next_at TEXT,
-    failures INTEGER NOT NULL
+    failures INTEGER NOT NULL,
+    phone INTEGER NOT NULL DEFAULT 0,
+    phone_steps TEXT NOT NULL DEFAULT '[]',
+    wait INTEGER NOT NULL DEFAULT 30
 );
 CREATE TABLE IF NOT EXISTS run (
     id TEXT PRIMARY KEY,
@@ -161,6 +181,10 @@ class Store:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self._db() as db:
             db.executescript(_SCHEMA)
+            for table, column, sql in _ADDED:
+                have = {r["name"] for r in db.execute(f"PRAGMA table_info({table})")}
+                if column not in have:
+                    db.execute(f'ALTER TABLE {table} ADD COLUMN "{column}" {sql}')
 
     @contextmanager
     def _db(self) -> Iterator[sqlite3.Connection]:
@@ -323,7 +347,7 @@ def _load(cls, row: sqlite3.Row):
         value = row[f.name]
         if f.name in _LIST_COLUMNS:
             value = json.loads(value)
-        elif f.name == "notified":
+        elif f.name in ("notified", "phone"):
             value = bool(value)
         data[f.name] = value
     return cls(**data)

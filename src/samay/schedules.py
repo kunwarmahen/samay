@@ -21,6 +21,7 @@ resumed, and its count of failures starts again.
 from __future__ import annotations
 
 import os
+import re
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -31,6 +32,13 @@ from samay.store import NOTIFY, RUNNERS, Schedule, Store, from_iso, iso, now_utc
 DEFAULT_MAX_SCHEDULES = 20
 MIN_TIME_LIMIT, MAX_TIME_LIMIT = 30, 3600
 DEFAULT_TIME_LIMIT = 600
+#: Minutes a scheduled run's questions may wait for the person, in all.
+MIN_WAIT, MAX_WAIT, DEFAULT_WAIT = 1, 240, 30
+#: "<word> in <app> when the screen shows <text>" -- the form Sparsh reads
+#: (its rules.py); checked here too, so a schedule never saves a grant
+#: the phone would refuse to read.
+PHONE_STEP = re.compile(
+    r"^\s*\S.*?\s+in\s+\S.*?\s+when the screen shows\s+\S.*$", re.IGNORECASE)
 LOCAL_OWNER = "local"
 
 
@@ -85,7 +93,9 @@ def create(store: Store, *, prompt: str, when: dict | str,
            notify: str = "when_new", allow_tools: list[str] | None = None,
            time_limit: int = DEFAULT_TIME_LIMIT, browser_profile: str = "",
            created_via: str = "cli", now: datetime | None = None,
-           dvara: Dvara | None = None) -> Schedule:
+           dvara: Dvara | None = None, phone: bool = False,
+           phone_steps: list[str] | None = None,
+           wait: int = DEFAULT_WAIT) -> Schedule:
     now = now or now_utc()
     prompt = (prompt or "").strip()
     if not prompt:
@@ -99,6 +109,21 @@ def create(store: Store, *, prompt: str, when: dict | str,
     if not MIN_TIME_LIMIT <= int(time_limit) <= MAX_TIME_LIMIT:
         raise ScheduleError(f"time limit must be between {MIN_TIME_LIMIT} "
                             f"and {MAX_TIME_LIMIT} seconds, got {time_limit}")
+    steps = [s.strip() for s in phone_steps or [] if s.strip()]
+    for step in steps:
+        if not PHONE_STEP.match(step):
+            raise ScheduleError(
+                f"{step!r} is not a step on the phone: say <word> in <app> when "
+                'the screen shows <text> ("send in Messages when the screen '
+                'shows 555-0123")')
+    if (phone or steps) and runner != "dvara":
+        raise ScheduleError("the phone is for the Dvara road, where the phone is")
+    if steps and not phone:
+        raise ScheduleError("steps on the phone are for a schedule that uses the "
+                            "phone (made where the phone is, or --phone)")
+    if not MIN_WAIT <= int(wait) <= MAX_WAIT:
+        raise ScheduleError(f"wait must be between {MIN_WAIT} and {MAX_WAIT} "
+                            f"minutes, got {wait}")
     said = preview(when, tz, now)
     mine = [s for s in store.schedules(owner=owner) if s.state != "done"]
     if len(mine) >= max_schedules():
@@ -123,7 +148,8 @@ def create(store: Store, *, prompt: str, when: dict | str,
         runner=runner, agent=agent, notify=notify,
         allow_tools=[g.strip() for g in allow_tools or [] if g.strip()],
         time_limit=int(time_limit), browser_profile=browser_profile,
-        created_at=iso(now), created_via=created_via, next_at=said["next"][0])
+        created_at=iso(now), created_via=created_via, next_at=said["next"][0],
+        phone=bool(phone), phone_steps=steps, wait=int(wait))
     return store.add(schedule)
 
 

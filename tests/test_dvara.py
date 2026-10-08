@@ -246,6 +246,73 @@ class TestAHeldRun:
         assert sent == []
 
 
+class TestThePhone:
+    """A schedule that works the phone: the door gets the phone and the
+    steps the person accepted, the waiting is allowed for, and a run the
+    door skipped (the phone was in use, or stayed locked) is a skip."""
+
+    STEP = "send in Messages when the screen shows 555-0123"
+
+    def test_a_phone_run_carries_its_steps_and_its_wait(self, dvara):
+        DvaraRunner(Dvara(dvara.url, TOKEN)).run(
+            schedule(phone=True, phone_steps=[self.STEP], wait=5), "text Sam")
+        body = dvara.seen[-1][2]
+        assert body["phone"] is True and body["phone_steps"] == [self.STEP]
+        assert body["wait"] == 300
+
+    def test_a_run_without_the_phone_says_nothing_of_it(self, dvara):
+        DvaraRunner(Dvara(dvara.url, TOKEN)).run(schedule(), "p")
+        body = dvara.seen[-1][2]
+        assert "phone" not in body and "phone_steps" not in body
+
+    def test_a_skip_is_not_a_failure(self, tmp_path, dvara):
+        dvara.reply = {"ok": False, "stop_reason": "skipped",
+                       "text": "skipped: the phone was in use for 10 minutes"}
+        result = DvaraRunner(Dvara(dvara.url, TOKEN)).run(schedule(phone=True), "p")
+        assert result.skipped and "in use" in result.detail
+
+        store = Store(tmp_path / "s.sqlite3")
+
+        class Skips:
+            def run(self, schedule, prompt):
+                return result
+        clock = Clock(store, {"direct": Skips()}, notifier=None)
+        made = schedules.create(store, prompt="p", when="every 1h", tz="UTC")
+        try:
+            run = clock.run_now(made.id)
+        finally:
+            clock.close()
+        assert run.outcome == "skipped" and "in use" in run.detail
+        assert store.get(made.id).failures == 0
+
+    def test_steps_are_checked_and_need_the_phone(self, tmp_path, dvara):
+        made = TestMakingOne().make(tmp_path, dvara, owner="mahen", phone=True,
+                                    phone_steps=[self.STEP], wait=45)
+        again = Store(tmp_path / "s.sqlite3").get(made.id)
+        assert again.phone and again.phone_steps == [self.STEP] and again.wait == 45
+        with pytest.raises(schedules.ScheduleError, match="not a step on the phone"):
+            TestMakingOne().make(tmp_path, dvara, owner="mahen", phone=True,
+                                 phone_steps=["send to 555-0123"])
+        with pytest.raises(schedules.ScheduleError, match="uses the phone"):
+            TestMakingOne().make(tmp_path, dvara, owner="mahen", phone_steps=[self.STEP])
+        with pytest.raises(schedules.ScheduleError, match="Dvara road"):
+            schedules.create(Store(tmp_path / "d.sqlite3"), prompt="p", when="every 1h",
+                             tz="UTC", phone=True)
+
+    def test_an_older_file_gains_the_new_columns_and_keeps_its_schedules(self, tmp_path):
+        import sqlite3
+
+        path = tmp_path / "old.sqlite3"
+        old = Store(path)
+        made = schedules.create(old, prompt="p", when="every 1h", tz="UTC")
+        with sqlite3.connect(path) as db:  # as a file made before them
+            for column in ("phone", "phone_steps", "wait"):
+                db.execute(f'ALTER TABLE schedule DROP COLUMN "{column}"')
+        again = Store(path).get(made.id)
+        assert again.prompt == "p" and again.phone is False
+        assert again.phone_steps == [] and again.wait == 30
+
+
 class TestSettings:
     def test_a_url_without_a_token_is_refused(self, monkeypatch):
         from samay.dvara import DvaraError

@@ -285,7 +285,9 @@ class Clock:
         run.refused = list(result.refused)
         run.detail = result.detail
         run.dvara_run_id = result.dvara_run_id
-        if result.timed_out:
+        if result.skipped:
+            run.outcome = "skipped"
+        elif result.timed_out:
             run.outcome = "timed_out"
         elif result.needs:
             run.outcome = "needs_person"

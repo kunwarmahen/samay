@@ -41,6 +41,8 @@ from samay.store import Schedule
 
 #: How long a call that is not a turn may take (the agent list, a notice).
 QUICK = 30.0
+#: How long Dvara waits for a phone in someone's hand before skipping.
+PHONE_IN_USE = 600
 
 
 class DvaraError(RuntimeError):
@@ -124,19 +126,31 @@ class DvaraRunner:
         body = {"actor": actor, "agent": schedule.agent,
                 "thread": f"samay-{schedule.id}-{int(time.time())}",
                 "text": prompt, "unattended": True,
-                "allow_tools": list(schedule.allow_tools)}
+                "allow_tools": list(schedule.allow_tools),
+                "wait": schedule.wait * 60}
+        limit = schedule.time_limit
+        if schedule.phone:
+            body.update(phone=True, phone_steps=list(schedule.phone_steps))
+            # THE WAITING IS NOT THE WORK. A phone run may wait for a phone
+            # in someone's hand (up to PHONE_IN_USE), for its person to
+            # unlock it (`wait`), and for its questions (`wait`, in all):
+            # none of that is the time limit's to spend.
+            limit += PHONE_IN_USE + 2 * schedule.wait * 60
         try:
-            reply = self.dvara.call("POST", "/message", body,
-                                    timeout=schedule.time_limit)
+            reply = self.dvara.call("POST", "/message", body, timeout=limit)
         except TimeoutError:
             return RunResult(
                 ok=False, timed_out=True, stop_reason="timed_out",
-                detail=(f"no answer from dvara within {schedule.time_limit}s, "
+                detail=(f"no answer from dvara within {limit}s, "
                         "the time limit for this schedule; the turn may still "
                         "finish there (dvara runs)"))
         except DvaraError as exc:
             return RunResult(ok=False, stop_reason="error", detail=str(exc))
         held = reply.get("held")
+        if reply.get("stop_reason") == "skipped":
+            # the phone was in use, or stayed locked: nothing was done
+            return RunResult(ok=True, stop_reason="skipped", skipped=True,
+                             detail=str(reply.get("text") or reply.get("detail") or ""))
         return RunResult(
             ok=bool(reply.get("ok")), text=str(reply.get("text") or ""),
             stop_reason=str(reply.get("stop_reason") or ""),

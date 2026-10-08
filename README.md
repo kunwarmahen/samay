@@ -337,6 +337,28 @@ too. A schedule is checked against Dvara when it is made: an agent
 Dvara doesn't offer, or nobody to run as, is refused before anything
 is saved.
 
+`--wait MINUTES` (default 30) is how long, in all, a run's questions may
+wait for the person. One that outwaits it **lapses**: refused, and the
+run's record says what it was (`samay runs`: `asked, not answered: …`).
+
+**A schedule that works your phone** (`--phone`, the Dvara road). Dvara
+gives such a run the phone, after checking it's free: in your hand, it
+waits up to ten minutes, then skips; locked, it asks you in your chat to
+unlock it and waits `--wait`, then skips; asleep, it wakes it. A skip is
+`skipped` in the logbook, with why, and isn't a failure. `--phone-step`
+names a held step it may do without asking, in one form:
+
+```bash
+samay add "Text 555-0123: running late, home by 7" --when "daily at 08:00" \
+      --runner dvara --agent phone --as mahen --wait 10 \
+      --phone-step "send in Messages when the screen shows 555-0123"
+```
+
+That Send goes through only while 555-0123 is on the screen; anything
+else held on the phone is asked in your chat. A schedule your agent
+makes in a chat that has the phone is a phone schedule already, and its
+card says what it may do there ([notes/06](notes/06-a-schedule-on-the-phone.md)).
+
 ## Settings
 
 | Variable | What |
@@ -370,8 +392,9 @@ src/samay/
 ├── runners.py    the direct road: yantra as a program, killed with its whole
 │                 process group at the time limit, only its JSON believed
 ├── dvara.py      the Dvara road: POST /message as the person, unattended, with
-│                 what they allowed ahead of time; answers out through
-│                 POST /notify. Standard library only
+│                 what they allowed ahead of time, its wait, and the phone
+│                 and its steps when it works one (notes/06); answers out
+│                 through POST /notify. Standard library only
 ├── http.py       the page and its JSON API, beside the clock in samay serve:
 │                 a token on every call, localhost by default
 ├── static/       the page: one file, no fonts or scripts fetched from anywhere
@@ -387,7 +410,7 @@ src/samay/
 ## Status
 
 The clock, the records, the rules above, both roads, the page and the
-agent's tools all work, and are covered by 167 tests. The API is not
+agent's tools all work, and are covered by 173 tests. The API is not
 stable.
 
 Not here yet:

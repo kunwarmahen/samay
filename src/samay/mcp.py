@@ -111,6 +111,15 @@ TOOLS: list[dict] = [
                     "only when there is something new. always: every time. "
                     "never: keep it for them to read."},
          "allow_tools": {"type": "array", "items": {"type": "string"}},
+         "phone_steps": {"type": "array", "items": {"type": "string"},
+                         "description": "Held steps on the person's phone this may do "
+                         "without asking, each as \"<word> in <app> when the screen "
+                         "shows <text>\" (\"send in Messages when the screen shows "
+                         "555-0123\"). Only what the person said; anything else held "
+                         "is asked in their chat."},
+         "wait": {"type": "integer", "minimum": 1, "maximum": 240,
+                  "description": "Minutes a question from a run may wait for the "
+                  "person, in all (default 30); then it is refused."},
          "tz": {"type": "string"}},
          "required": ["prompt", "when"]},
      "annotations": {"readOnlyHint": False, "destructiveHint": False}},
@@ -139,8 +148,11 @@ class ToolFailed(Exception):
 class Tools:
     def __init__(self, store: Store, state: Path, *, person: str,
                  agent: str = "", runner: str | None = None,
-                 dvara: Dvara | None = None) -> None:
+                 dvara: Dvara | None = None, phone: bool = False) -> None:
         self.store = store
+        #: This turn has the person's phone (``--phone``, from Dvara): a
+        #: schedule made here works it too.
+        self.phone = phone
         self.state = state
         self.person = person
         self.agent = agent
@@ -195,13 +207,18 @@ class Tools:
         allow = args.get("allow_tools") or []
         if not isinstance(allow, list):
             raise ToolFailed("allow_tools is a list of tool names or globs")
+        steps = args.get("phone_steps") or []
+        if not isinstance(steps, list):
+            raise ToolFailed("phone_steps is a list of sentences")
         made = schedules.create(
             self.store, prompt=str(args.get("prompt") or ""),
             when=_need(args, "when"), tz=args.get("tz") or None,
             owner=self.person, runner=self.runner, agent=self.agent,
             notify=str(args.get("notify") or "when_new"),
             allow_tools=[str(g) for g in allow], created_via="agent",
-            dvara=self.dvara if self.runner == "dvara" else None)
+            dvara=self.dvara if self.runner == "dvara" else None,
+            phone=self.phone, phone_steps=[str(s) for s in steps],
+            wait=_minutes(args.get("wait")))
         said = f"Saved {made.id}: {schedules.sentence(made)}."
         if serving(self.state) is None:
             said += (" Note: Samay's clock is not running on this machine, "
@@ -286,3 +303,12 @@ def serve(tools: Tools, stdin: TextIO = sys.stdin,
         if reply is not None:
             stdout.write(json.dumps(reply) + "\n")
             stdout.flush()
+
+
+def _minutes(value) -> int:
+    if value in (None, ""):
+        return schedules.DEFAULT_WAIT
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        raise ToolFailed(f"wait is minutes, not {value!r}") from None
