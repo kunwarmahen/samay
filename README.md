@@ -345,7 +345,8 @@ run's record says what it was (`samay runs`: `asked, not answered: …`).
 **A schedule that works your phone** (`--phone`, the Dvara road). Dvara
 gives such a run the phone, after checking it's free: in your hand, it
 waits up to ten minutes, then skips; locked, it asks you in your chat to
-unlock it and waits `--wait`, then skips; asleep, it wakes it. A skip is
+unlock it and waits `--wait`, then skips; asleep or behind a lock with
+no PIN, it wakes it. A skip is
 `skipped` in the logbook, with why, and isn't a failure. `--phone-step`
 names a held step it may do without asking, in one form:
 
