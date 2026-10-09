@@ -83,6 +83,11 @@ class TestTheToken:
         assert "<title>Samay</title>" in page
         assert "ferns" not in page
 
+    def test_the_icon_needs_none_either(self, site):
+        with urllib.request.urlopen(site.url.rstrip("/") + "/favicon.svg", timeout=10) as response:
+            assert response.headers["Content-Type"] == "image/svg+xml"
+            assert response.read().startswith(b"<svg")
+
     @pytest.mark.parametrize("token", [None, "wrong-token-of-enough-length"])
     def test_every_api_call_without_it_is_refused(self, site, token):
         add(site)

@@ -397,7 +397,7 @@ src/samay/
 │                 through POST /notify. Standard library only
 ├── http.py       the page and its JSON API, beside the clock in samay serve:
 │                 a token on every call, localhost by default
-├── static/       the page: one file, no fonts or scripts fetched from anywhere
+├── static/       the page: one file and its icon, nothing fetched from anywhere
 ├── mcp.py        the agent's tools, for one person (stdio MCP, by hand)
 ├── status.py     samay status --json: is it here, is the clock running (a
 │                 lock it holds, notes/05),

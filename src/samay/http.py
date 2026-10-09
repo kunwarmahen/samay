@@ -208,6 +208,10 @@ def page() -> bytes:
     return files("samay").joinpath("static/index.html").read_bytes()
 
 
+def favicon() -> bytes:
+    return files("samay").joinpath("static/favicon.svg").read_bytes()
+
+
 class SamayServer:
     """The API and the page, on a thread of their own beside the clock."""
 
@@ -279,6 +283,8 @@ def _handler(server: SamayServer):
             url = urlparse(self.path)
             if method == "GET" and url.path in ("/", "/index.html"):
                 return self._send(200, page(), "text/html; charset=utf-8")
+            if method == "GET" and url.path == "/favicon.svg":
+                return self._send(200, favicon(), "image/svg+xml")
             if not url.path.startswith("/api/"):
                 return self._json(404, {"detail": "not found"})
             if not self._authorized():
