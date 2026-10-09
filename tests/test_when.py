@@ -174,3 +174,33 @@ class TestTheSentence:
     def test_a_passed_once_says_so(self):
         when = parse({"once": "2026-10-06T15:00"}, "America/New_York")
         assert "no time left" in describe(when, local(2026, 10, 7, 0, 0))
+
+
+class TestWhoseZoneByDefault:
+    """A schedule made with no zone takes the person's: in a container,
+    /etc/localtime says UTC while $TZ says where they are. Read only the
+    file, "at 08:00" ran at 4 am in New York."""
+
+    def test_tz_names_the_zone_when_samay_tz_does_not(self, monkeypatch):
+        from samay.schedules import default_tz
+
+        monkeypatch.delenv("SAMAY_TZ", raising=False)
+        monkeypatch.setenv("TZ", "America/New_York")
+        assert default_tz() == "America/New_York"
+        monkeypatch.setenv("TZ", ":Asia/Kolkata")
+        assert default_tz() == "Asia/Kolkata"
+
+    def test_samay_tz_still_wins(self, monkeypatch):
+        from samay.schedules import default_tz
+
+        monkeypatch.setenv("SAMAY_TZ", "Europe/Berlin")
+        monkeypatch.setenv("TZ", "America/New_York")
+        assert default_tz() == "Europe/Berlin"
+
+    def test_a_tz_that_is_no_zone_is_passed_over(self, monkeypatch):
+        from samay.schedules import default_tz
+
+        monkeypatch.delenv("SAMAY_TZ", raising=False)
+        for rule in ("EST5EDT", "Mars/Olympus"):
+            monkeypatch.setenv("TZ", rule)
+            assert default_tz() not in (rule, "")

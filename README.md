@@ -239,7 +239,8 @@ agent sends:
 | `once 2026-10-06T15:00` | `{"once": "2026-10-06T15:00"}` |
 | `cron 0 */2 * * *` | `{"cron": "0 */2 * * *"}` |
 
-Times are in your time zone (`--tz`, `$SAMAY_TZ`, or this machine's),
+Times are in your time zone (`--tz`, `$SAMAY_TZ`, `$TZ`, or this
+machine's; in a container `$TZ` is what knows yours),
 and "08:00" stays 08:00 when the clocks change. Nothing runs more often
 than every five minutes, however it's written. A mistake is refused
 before anything is saved, with what to write instead:
@@ -366,7 +367,7 @@ card says what it may do there ([notes/06](notes/06-a-schedule-on-the-phone.md))
 | `SAMAY_STATE` | where schedules and runs are kept (default `~/.samay`; also `--state`) |
 | `SAMAY_YANTRA` | the command that starts Yantra; may be several words (`uv run --project ~/yantra yantra`) |
 | `SAMAY_YANTRA_HOME` | the folder Yantra starts in, for its `.env` |
-| `SAMAY_TZ` | the default time zone for new schedules |
+| `SAMAY_TZ` | the default time zone for new schedules (else `$TZ` when it names a zone, else this machine's) |
 | `SAMAY_DVARA_URL` | where Dvara's HTTP surface is; set, answers are sent and `--runner dvara` works |
 | `SAMAY_DVARA_TOKEN` | Dvara's `DVARA_TOKEN` |
 | `SAMAY_DVARA_ACTOR` | the person a schedule made here runs as and is sent to, when `--as` isn't given |

@@ -24,6 +24,7 @@ import os
 import re
 from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from samay import when as when_mod
 from samay.dvara import Dvara, DvaraError
@@ -47,10 +48,23 @@ class ScheduleError(ValueError):
 
 
 def default_tz() -> str:
-    """``$SAMAY_TZ``, else this machine's zone, else UTC."""
+    """``$SAMAY_TZ``, else ``$TZ`` when it names a zone, else this
+    machine's zone, else UTC.
+
+    $TZ BEFORE /etc/localtime. A container's /etc/localtime is usually
+    UTC whatever the person's clock says; Sarathi hands each container
+    the person's zone as $TZ instead. Read only /etc/localtime, a
+    schedule made there "at 08:00" ran at 4 am in New York."""
     configured = os.environ.get("SAMAY_TZ", "").strip()
     if configured:
         return configured
+    named = os.environ.get("TZ", "").strip().removeprefix(":")
+    if named and "/" in named:  # a zone's name, not a POSIX rule like EST5EDT
+        try:
+            ZoneInfo(named)
+            return named
+        except (ZoneInfoNotFoundError, ValueError):
+            pass
     try:
         target = os.path.realpath("/etc/localtime")
         marker = "/zoneinfo/"
