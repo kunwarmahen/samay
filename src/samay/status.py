@@ -24,6 +24,11 @@ its holder dies, and every process that opens the same file sees it,
 whichever namespace it is in. Taking it is also the check, so two
 ``samay serve`` started at once cannot both win.
 
+WHERE ANSWERS GO is the running clock's: ``dvara`` (its address) and
+``local_to`` (who hears a schedule made at this computer), as written
+by ``samay serve``. A harness runs ``samay status`` with its own
+environment, which is not the clock's.
+
 NO SECRET IS IN IT. The page's token is not here; a harness that wants
 the page sends the person to ``samay serve``'s own printed address. The
 ``format`` field names the shape, and a reader should refuse one it does
@@ -91,7 +96,9 @@ def report(state: Path, store: Store) -> dict:
     for schedule in store.schedules():
         counts[schedule.state] = counts.get(schedule.state, 0) + 1
     served = serving(state)
-    dvara = os.environ.get("SAMAY_DVARA_URL", "").strip() or None
+    # the running clock's own answer first: it is the one that sends
+    dvara = ((served or {}).get("dvara")
+             or os.environ.get("SAMAY_DVARA_URL", "").strip() or None)
     return {
         "format": FORMAT,
         "version": __version__,
@@ -100,6 +107,9 @@ def report(state: Path, store: Store) -> dict:
         "url": served.get("url") if served else None,
         "schedules": counts,
         "dvara": dvara,
+        # Who hears a schedule made at this computer (``local``), through
+        # Dvara: the running clock's $SAMAY_DVARA_ACTOR, or "" for nobody.
+        "local_to": str((served or {}).get("local_to") or ""),
         # How a harness starts the agent's tools: add "--for WHO".
         "mcp": {"command": samay_command(),
                 "args": ["--state", str(state), "mcp"]},

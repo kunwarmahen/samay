@@ -214,16 +214,21 @@ turn, minutes long, and starting one from inside another would hold it
 up.
 
 `samay status --json` tells a harness whether Samay is here, whether
-its clock is running, and how to start `samay mcp`.
+its clock is running, how to start `samay mcp`, and where the running
+clock sends answers: `dvara` (its address) and `local_to` (who hears a
+schedule made at this computer). Those two are the clock's own, written
+by `samay serve`, because a harness asks with its own environment.
 
 **In Yantra, there's nothing to set up.** When `samay` is on `PATH` (or
 `YANTRA_SAMAY` names it), Yantra reads `samay status --json` at startup,
 starts `samay mcp --for local` itself, and writes the approval card for
 a new schedule in words: when, who hears, what each `allow_tools` glob
 reaches in that agent, and which of your accounts the run could change
-or read. `yantra --web` gets a Schedules panel that uses the `--json`
-commands below, so it works whether or not `samay serve` is running
-(Yantra's notes/115).
+or read, laid out like the new-schedule form on Samay's page, with where
+the answer goes. `yantra --web` gets a Schedules panel that uses the
+`--json` commands below, so it works whether or not `samay serve` is
+running (Yantra's notes/115), and an answers chip for what this
+computer's schedules said (Yantra's notes/125).
 
 ### Saying when
 
@@ -269,8 +274,11 @@ If a schedule is paused (see below), you're always told, whatever
 > **Where is "sent"?** Sending needs a channel, and the channels live
 > in Dvara, the always-on service Yantra agents live behind. With
 > `SAMAY_DVARA_URL` set, answers go to the person's own channels
-> (Telegram) through Dvara, whichever road the run took. Without it,
-> runs are kept for `samay runs` and nothing more.
+> (Telegram, and Dvara's web channel) through Dvara, whichever road the
+> run took. A schedule made at this computer (`local`) goes to
+> `SAMAY_DVARA_ACTOR`; Sarathi sets it to its owner. Without a Dvara,
+> runs are kept for `samay runs` and nothing more, and Yantra's page
+> still shows them.
 
 ### When something goes wrong
 
@@ -403,7 +411,8 @@ src/samay/
 ├── mcp.py        the agent's tools, for one person (stdio MCP, by hand)
 ├── status.py     samay status --json: is it here, is the clock running (a
 │                 lock it holds, notes/05),
-│                 how to start the tools
+│                 how to start the tools, and where the running clock
+│                 sends answers
 ├── unit.py       samay unit: a systemd user unit for samay serve, and an env
 │                 file (yours alone) with the settings a service would lack
 └── cli.py        the commands above
@@ -412,7 +421,7 @@ src/samay/
 ## Status
 
 The clock, the records, the rules above, both roads, the page and the
-agent's tools all work, and are covered by 173 tests. The API is not
+agent's tools all work, and are covered by 178 tests. The API is not
 stable.
 
 Not here yet:

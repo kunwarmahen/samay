@@ -73,3 +73,21 @@ def test_the_clock_is_free_the_moment_its_holder_dies(tmp_path):
 
 def test_a_state_folder_that_never_served_is_not_serving(tmp_path):
     assert serving(tmp_path) is None
+
+
+def test_where_answers_go_is_the_running_clocks_not_the_askers(tmp_path, monkeypatch):
+    # Yantra's page asks `samay status` with its own environment, which
+    # has no SAMAY_DVARA_*; the clock that sends wrote down its own.
+    from samay.status import report
+    from samay.store import Store
+    monkeypatch.delenv("SAMAY_DVARA_URL", raising=False)
+    proc = holder(tmp_path)
+    try:
+        (tmp_path / "serve.json").write_text(json.dumps(
+            {"pid": 1, "url": None, "dvara": "http://dvara:8765", "local_to": "mahen"}))
+        said = report(tmp_path, Store(tmp_path / "samay.db"))
+        assert said["dvara"] == "http://dvara:8765" and said["local_to"] == "mahen"
+    finally:
+        stop(proc)
+    said = report(tmp_path, Store(tmp_path / "samay2.db"))
+    assert said["dvara"] is None and said["local_to"] == ""

@@ -392,8 +392,13 @@ def _serve(store: Store, state: Path, *, host: str, port: int,
                   file=sys.stderr)
             return 2
         server.start()
+    told = _dvara()
+    # where answers go, for a harness asking `samay status` from a process
+    # that doesn't have this one's environment (Yantra's page)
     _serve_file(state).write_text(json.dumps(
-        {"pid": os.getpid(), "url": server.url if server else None}))
+        {"pid": os.getpid(), "url": server.url if server else None,
+         "dvara": told.url if told else None,
+         "local_to": told.actor if told else ""}))
     try:
         clock.serve(stop, on_start=started)
     finally:
