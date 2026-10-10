@@ -374,19 +374,48 @@ class TestPausedWhileRunning:
 
 
 class TestRefusedTools:
-    def test_a_refused_tool_is_kept_but_does_not_stop_the_schedule(self, world):
-        """The model was told no and answered anyway: a person may want
-        to allow it next time, but nothing needs them now."""
+    def test_a_refused_tool_is_said_but_does_not_stop_the_schedule(self, world):
+        """The model was told no and answered anyway: the run is not
+        filed as done -- the job may not be -- and its person hears what
+        was not allowed and how to allow it; but the schedule goes on,
+        because the part it could do still gets done."""
         time, store, runner, inbox, clock = world
         runner.results = [RunResult(ok=True, text="here you go",
-                                    refused=["bash"])]
+                                    refused=["bash"])] * 4
         s = add(store, notify="always")
+        for _ in range(4):
+            time.move(hours=1)
+            tick(clock)
+        run = store.runs(s.id)[0]
+        assert run.outcome == "refused" and run.refused == ["bash"]
+        assert store.get(s.id).state == "active"
+        assert inbox.sent[0].startswith("here you go\n\nNot allowed without asking: bash.")
+        assert f"samay allow {s.id} 'bash'" in inbox.sent[0]
+
+    def test_the_stairs_light_is_told_as_not_done_even_when_new_only(self, world):
+        """A one-off told when_new: its reply said it could not, its
+        outcome said ok, and the light stayed on. Now it is refused, said,
+        and the way out is to ask -- it will not run again."""
+        time, store, runner, inbox, clock = world
+        runner.results = [RunResult(
+            ok=True, text="Couldn't do it: switch/turn_off was refused.",
+            refused=["mcp__homeassistant-home__call_service: turn off switch.lights_2"])]
+        s = add(store, when={"once": "2026-10-05T12:30"})
         time.move(hours=1)
         tick(clock)
         run = store.runs(s.id)[0]
-        assert run.outcome == "ok" and run.refused == ["bash"]
-        assert store.get(s.id).state == "active"
-        assert inbox.sent == ["here you go"]
+        assert run.outcome == "refused"
+        assert "Not allowed without asking: mcp__homeassistant-home__call_service." \
+            in inbox.sent[0]
+        assert "one-off" in inbox.sent[0] and "samay allow" not in inbox.sent[0]
+
+    def test_a_schedule_that_tells_nothing_is_not_told_this_either(self, world):
+        time, store, runner, inbox, clock = world
+        runner.results = [RunResult(ok=True, text="x", refused=["bash"])]
+        add(store, notify="never")
+        time.move(hours=1)
+        tick(clock)
+        assert inbox.sent == []
 
 
 class TestSummary:

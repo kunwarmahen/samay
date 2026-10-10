@@ -22,7 +22,8 @@ Three fields, all on the Dvara road, where the phone is:
   schedule is made, so it can't save a grant the phone would refuse to
   read. Steps need `phone`.
 * **`wait`**: minutes its questions may wait for the person, in all
-  (default 30). It applies to any Dvara-road run, phone or not.
+  (default 30). It applies to any Dvara-road run, phone or not, and to
+  a direct-road run that asks through Dvara ([note 07](07-a-refused-run-is-not-done.md)).
 
 **THE PERSON SEES THEM BEFORE SAYING YES.** Yantra's card for
 `create_schedule` says *IT WORKS YOUR PHONE*, lists each step as *ON

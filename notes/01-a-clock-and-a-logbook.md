@@ -175,6 +175,11 @@ Sun 4 Oct 20:49  busy          I hit a wall on this one, so here's the honest st
     not allowed: web_fetch, bash (allow with --allow-tools when adding)
 ```
 
+A refused run that *finished* was later given an outcome of its own,
+`refused` instead of `ok`, said to the person with the way to allow the
+tool, and still never a reason to pause
+([note 07](07-a-refused-run-is-not-done.md)).
+
 ## Receipts
 
 Everything below was run against `qwen3.8:latest` through Ollama, with

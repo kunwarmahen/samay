@@ -3,20 +3,21 @@
     samay mcp --for mahen [--agent DIR|NAME] [--runner direct|dvara]
 
 An MCP server on stdin/stdout -- newline-delimited JSON-RPC, written by
-hand like the client in Yantra -- with seven tools:
+hand like the client in Yantra -- with eight tools:
 
-    preview_schedule   read    check a 'when'; the sentence and next times
-    list_schedules     read    this person's schedules
-    schedule_runs      read    what one of them did
-    create_schedule    write   save one
-    pause_schedule     write
-    resume_schedule    write
-    delete_schedule    write
+    preview_schedule    read    check a 'when'; the sentence and next times
+    list_schedules      read    this person's schedules
+    schedule_runs       read    what one of them did
+    create_schedule     write   save one
+    pause_schedule      write
+    resume_schedule     write
+    allow_for_schedule  write   let it use a tool it was refused, next time
+    delete_schedule     write
 
 THE AGENT PROPOSES, THE PERSON ACCEPTS. Nothing here asks anybody
 anything: the three read tools say ``readOnlyHint: true`` and the four
 others do not, so a harness that honours the hint (Yantra does) puts
-every create, pause, resume and delete in front of the person first --
+every create, pause, resume, allow and delete in front of the person first --
 as a permission card in the browser, a y/N in the terminal, two buttons
 on Telegram. What they see is the call's arguments: the prompt, the
 ``when``, what gets sent and which tools it may use unasked. The
@@ -101,8 +102,11 @@ TOOLS: list[dict] = [
          "`prompt` with NOBODY watching, so write it as a complete "
          "instruction to yourself for later -- what to check, and what "
          "is worth telling the person. List in allow_tools the tools it "
-         "needs to run without asking (e.g. \"browser_*\"); anything else "
-         "that changes something is refused or asked about."),
+         "needs to run without asking (e.g. \"browser_*\") -- and if the job "
+         "itself changes something, the tool that does it, fixed to what it "
+         "acts on: \"call_service(domain=switch, service=turn_off, "
+         "entity_id=switch.lights_2)\". Anything else that changes something "
+         "is refused or asked about."),
      "inputSchema": {"type": "object", "properties": {
          "prompt": {"type": "string"},
          "when": _WHEN,
@@ -110,7 +114,10 @@ TOOLS: list[dict] = [
                     "description": "when_new (default): tell the person "
                     "only when there is something new. always: every time. "
                     "never: keep it for them to read."},
-         "allow_tools": {"type": "array", "items": {"type": "string"}},
+         "allow_tools": {"type": "array", "items": {"type": "string"},
+                         "description": "Exact tool names or globs; a tool "
+                         "that changes things fixed to its arguments as "
+                         "tool(key=value, ...) with the exact values."},
          "phone_steps": {"type": "array", "items": {"type": "string"},
                          "description": "Held steps on the person's phone this may do "
                          "without asking, each as \"<word> in <app> when the screen "
@@ -132,6 +139,17 @@ TOOLS: list[dict] = [
      "description": "Start a paused schedule again, from now.",
      "inputSchema": {"type": "object", "properties": {
          "id": {"type": "string"}}, "required": ["id"]},
+     "annotations": {"readOnlyHint": False, "destructiveHint": False}},
+    {"name": "allow_for_schedule",
+     "description": (
+         "Let one of the person's schedules use more tools without asking, "
+         "from its next run -- when a run was refused a tool it needed and "
+         "the person says to allow it. Same form as create_schedule's "
+         "allow_tools; fix a tool that changes things to what it acts on."),
+     "inputSchema": {"type": "object", "properties": {
+         "id": {"type": "string"},
+         "allow_tools": {"type": "array", "items": {"type": "string"}}},
+         "required": ["id", "allow_tools"]},
      "annotations": {"readOnlyHint": False, "destructiveHint": False}},
     {"name": "delete_schedule",
      "description": "Remove a schedule and its history, for good.",
@@ -233,6 +251,17 @@ class Tools:
     def _resume_schedule(self, args: dict) -> str:
         schedule = schedules.resume(self.store, self._mine(args).id)
         return f"Resumed {schedule.id}: {schedules.sentence(schedule)}."
+
+    def _allow_for_schedule(self, args: dict) -> str:
+        allow = args.get("allow_tools") or []
+        if not isinstance(allow, list):
+            raise ToolFailed("allow_tools is a list of tool names")
+        schedule = schedules.allow(self.store, self._mine(args).id,
+                                   [str(g) for g in allow])
+        note = (" It has had its time and will not run again; to do it now, do "
+                "it in this conversation." if schedule.state == "done" else "")
+        return (f"{schedule.id} may now use without asking: "
+                f"{', '.join(schedule.allow_tools)}.{note}")
 
     def _delete_schedule(self, args: dict) -> str:
         schedule = schedules.remove(self.store, self._mine(args).id)

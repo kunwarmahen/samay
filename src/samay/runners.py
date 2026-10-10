@@ -103,14 +103,30 @@ def find_yantra() -> list[str]:
 
 
 class DirectRunner:
-    """Run the turn as a Yantra process on this machine."""
+    """Run the turn as a Yantra process on this machine.
+
+    A DIRECT RUN CAN STILL ASK, when this Samay knows a Dvara. Unattended
+    meant "refuse what was not allowed ahead of time", and "turn off the
+    stairs light at four" was refused while its person sat in front of
+    Telegram. With a Dvara (``ask``: its address, token and who a
+    schedule is for), the Yantra started here is told where to put a
+    question (``$YANTRA_ASK_URL``): the person's chat, waiting the
+    schedule's ``wait`` in all, and the time limit grows by that wait --
+    waiting for a yes is not the work.
+    """
 
     def __init__(self, work: Path, *, command: list[str] | None = None,
-                 home: Path | None = None) -> None:
+                 home: Path | None = None, ask=None) -> None:
         self.work = Path(work)
         self.command = command
         raw_home = os.environ.get("SAMAY_YANTRA_HOME", "").strip()
         self.home = home or (Path(raw_home).expanduser() if raw_home else None)
+        #: A ``samay.dvara.Dvara``, or None: nobody to ask.
+        self.ask = ask
+
+    def asks_whom(self, schedule: Schedule) -> str:
+        """Who this schedule's questions go to through Dvara ("" for nobody)."""
+        return self.ask.actor_for(schedule) if self.ask is not None else ""
 
     def argv(self, schedule: Schedule, prompt: str) -> list[str]:
         command = self.command or find_yantra()
@@ -126,7 +142,19 @@ class DirectRunner:
         env = {**os.environ, "YANTRA_UNATTENDED": "1"}
         if schedule.browser_profile:
             env["YANTRA_BROWSER_PROFILE"] = schedule.browser_profile
+        whom = self.asks_whom(schedule)
+        if whom:
+            env.update(YANTRA_ASK_URL=self.ask.url, YANTRA_ASK_TOKEN=self.ask.token,
+                       YANTRA_ASK_ACTOR=whom, YANTRA_ASK_WAIT=str(schedule.wait * 60))
+        else:
+            for key in ("YANTRA_ASK_URL", "YANTRA_ASK_TOKEN", "YANTRA_ASK_ACTOR",
+                        "YANTRA_ASK_WAIT"):
+                env.pop(key, None)
         return env
+
+    def time_limit(self, schedule: Schedule) -> int:
+        """The work's limit, plus the wait for a yes when it can ask."""
+        return schedule.time_limit + (schedule.wait * 60 if self.asks_whom(schedule) else 0)
 
     def run(self, schedule: Schedule, prompt: str) -> RunResult:
         try:
@@ -146,15 +174,16 @@ class DirectRunner:
         except OSError as exc:
             return RunResult(ok=False, stop_reason="error",
                              detail=f"could not start {argv[0]}: {exc}")
+        limit = self.time_limit(schedule)
         try:
-            out, err = proc.communicate(timeout=schedule.time_limit)
+            out, err = proc.communicate(timeout=limit)
         except subprocess.TimeoutExpired:
             out, err = _kill(proc)
             result = _read(out, err)
             result.ok = False
             result.timed_out = True
             result.stop_reason = "timed_out"
-            result.detail = (f"stopped after {schedule.time_limit}s, the "
+            result.detail = (f"stopped after {limit}s, the "
                              "time limit for this schedule")
             return result
         return _read(out, err)

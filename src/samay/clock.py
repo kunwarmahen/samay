@@ -24,6 +24,12 @@ an unwatched schedule goes wrong:
   the same page. The person is told what is needed; resuming is theirs.
 * A BUSY BROWSER IS NOT A FAILURE. Another Yantra had the profile; the
   run is ``busy``, nobody is told, and the next time tries again.
+* A REFUSED RUN IS NOT DONE. A run that finished without a tool it
+  reached for -- nobody had allowed it ahead of time, or its person said
+  no -- is ``refused``, not ``ok``: its person is told what it was not
+  allowed and how to allow it, every time. It does not count towards
+  pausing: the model often finishes without the tool, and a pause would
+  stop the part it could do.
 * A HELD RUN IS WAITING, NOT FAILED. On the Dvara road a turn may stop
   for the person's approval of a tool; they have been asked on their
   channel already, so the run is ``held`` and nothing more is sent.
@@ -120,6 +126,35 @@ def compose(schedule: Schedule, last: Run | None, report: Run | None = None) -> 
                       f"refused -- never reply {QUIET_WORDS}; say what stopped "
                       "you."]
     return "\n".join(parts)
+
+
+def refused_tools(refused: list[str]) -> list[str]:
+    """The tools a run was refused, each once: a lapsed question comes
+    back from Dvara as ``tool: what it would have done``."""
+    return list(dict.fromkeys(r.split(": ", 1)[0].strip() for r in refused if r.strip()))
+
+
+def refused_notice(schedule: Schedule, result: RunResult, one_off: bool) -> str:
+    """What a refused run tells its person: what it said, then what it
+    was not allowed and how to allow it.
+
+    A REFUSED RUN IS ALWAYS SAID AS ONE, even under ``when_new``. "Turn
+    off the stairs light" came back filed as done -- its reply said it
+    could not, its outcome said ``ok`` -- and only a person who read the
+    reply knew the light was still on. The way out is named with it: in
+    a chat, the agent can allow the tool for this schedule (the person
+    approves that like any other change), or ``samay allow``; and a
+    one-off that has had its time can only be done again by asking."""
+    tools = refused_tools(result.refused)
+    lines = [result.text.strip() or summarize(result.detail) or "It did not finish.", "",
+             f"Not allowed without asking: {', '.join(tools)}."]
+    if one_off:
+        lines.append("This was a one-off, so it will not run again: ask me to do it "
+                     "now, or to make it again with that allowed.")
+    else:
+        lines.append(f"To let it next time, say so in a chat with me, or run: "
+                     f"samay allow {schedule.id} '{tools[0]}'")
+    return "\n".join(lines)
 
 
 def summarize(text: str, limit: int = 200) -> str:
@@ -298,6 +333,10 @@ class Clock:
             run.detail = "; ".join(result.busy)
         elif not result.ok:
             run.outcome = "failed"
+        elif result.refused:
+            # Finished, but without something it reached for: the job
+            # may not be done, whatever the reply's first word says.
+            run.outcome = "refused"
         elif schedule.notify == "when_new" and is_quiet(result.text):
             run.outcome = "quiet"
         else:
@@ -325,6 +364,9 @@ class Clock:
 
         if run.outcome == "ok" and schedule.notify != "never":
             run.notified = self._send(schedule, result.text)
+        if run.outcome == "refused" and schedule.notify != "never" and not paused_because:
+            run.notified = self._send(schedule, refused_notice(
+                schedule, result, one_off=current is None or current.state == "done"))
         if paused_because:
             sent = self._send(schedule, (
                 f"Paused: {summarize(schedule.prompt, 80)}\n"

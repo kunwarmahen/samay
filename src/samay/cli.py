@@ -8,6 +8,7 @@
     samay show ID                               one schedule in full
     samay runs [ID]                             what happened, newest first
     samay pause ID | resume ID | rm ID
+    samay allow ID TOOL...                      let it use more tools unasked, next run on
     samay run-now ID                            once, now, here -- and wait for it
     samay serve [--port 8780]                   the clock, and its page, until stopped
     samay mcp --for WHO [--agent A]             the tools an agent uses (MCP, stdio)
@@ -126,6 +127,14 @@ def build_parser() -> argparse.ArgumentParser:
         p = sub.add_parser(name, help=text)
         p.add_argument("id")
         p.add_argument("--json", action="store_true", dest="json_out")
+
+    p = sub.add_parser("allow", help="let it use more tools without asking, "
+                       "from its next run")
+    p.add_argument("id")
+    p.add_argument("tools", nargs="+", metavar="TOOL",
+                   help="a tool name or glob, or one fixed to what it acts on: "
+                        "'call_service(domain=switch, entity_id=switch.lights_2)'")
+    p.add_argument("--json", action="store_true", dest="json_out")
 
     p = sub.add_parser("runs", help="what happened, newest first")
     p.add_argument("id", nargs="?")
@@ -290,6 +299,12 @@ def _dispatch(args, store: Store, state: Path) -> int:
         print(json.dumps(_card(schedule)) if args.json_out
               else f"resumed {schedule.id}: {schedules.sentence(schedule)}")
         return 0
+    if cmd == "allow":
+        schedule = schedules.allow(store, schedule.id, args.tools)
+        print(json.dumps(_card(schedule)) if args.json_out
+              else f"{schedule.id} may now use without asking: "
+                   f"{', '.join(schedule.allow_tools)}")
+        return 0
     if cmd == "rm":
         schedules.remove(store, schedule.id)
         print(json.dumps({"removed": schedule.id}) if args.json_out
@@ -323,8 +338,8 @@ def _dvara() -> Dvara | None:
 
 
 def _runners(state: Path) -> dict:
-    runners: dict = {"direct": DirectRunner(state / "work")}
     dvara = _dvara()
+    runners: dict = {"direct": DirectRunner(state / "work", ask=dvara)}
     if dvara is not None:
         runners["dvara"] = DvaraRunner(dvara)
     return runners
@@ -470,7 +485,7 @@ def _print_run(run: Run, zone: ZoneInfo | None, with_schedule: bool) -> None:
         print(f"{' ' * len(head)}    asked, not answered: {line}")
     if refused:
         print(f"{' ' * len(head)}    not allowed: {', '.join(refused)} "
-              "(allow with --allow-tools when adding)")
+              f"(samay allow {run.schedule} TOOL)")
 
 
 def _clip(text: str, limit: int) -> str:

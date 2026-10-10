@@ -48,7 +48,7 @@ class TestWhatAHarnessReliesOn:
         assert hints == {"preview_schedule": True, "list_schedules": True,
                          "schedule_runs": True, "create_schedule": False,
                          "pause_schedule": False, "resume_schedule": False,
-                         "delete_schedule": False}
+                         "allow_for_schedule": False, "delete_schedule": False}
 
     def test_only_delete_is_destructive(self):
         destroys = {t["name"] for t in TOOLS
@@ -165,7 +165,7 @@ class TestTheProtocol:
             env={"SAMAY_TZ": "UTC", "PATH": "/usr/bin:/bin"})
         replies = [json.loads(line) for line in done.stdout.splitlines()]
         assert [r["id"] for r in replies] == [1, 2, 3]
-        assert len(replies[1]["result"]["tools"]) == 7
+        assert len(replies[1]["result"]["tools"]) == 8
         assert replies[2]["result"]["content"][0]["text"].startswith("Saved ")
         assert len(Store(tmp_path / "samay.sqlite3").schedules()) == 1
 

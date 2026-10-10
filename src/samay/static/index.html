@@ -158,7 +158,7 @@ details.more[open] summary { margin-bottom: 12px; }
        padding: 1px 8px; margin-right: 6px; border: 1px solid currentColor; }
 .out.ok { color: var(--ok); }
 .out.quiet, .out.missed, .out.skipped, .out.busy, .out.interrupted { color: var(--quiet); }
-.out.failed, .out.timed_out { color: var(--bad); }
+.out.failed, .out.timed_out, .out.refused { color: var(--bad); }
 .out.needs_person, .out.held { color: var(--needs); }
 .out.running { color: var(--gold); }
 
@@ -339,6 +339,7 @@ details.more[open] summary { margin-bottom: 12px; }
     ok: "done", quiet: "nothing new", failed: "failed", needs_person: "needs you",
     timed_out: "too long", busy: "browser busy", held: "waiting for you",
     missed: "missed", skipped: "skipped", interrupted: "interrupted", running: "running",
+    refused: "not allowed",
   };
   const chip = (outcome) => el("span", "out " + outcome, OUTCOME[outcome] || outcome);
 

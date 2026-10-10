@@ -41,6 +41,13 @@ MIN_WAIT, MAX_WAIT, DEFAULT_WAIT = 1, 240, 30
 PHONE_STEP = re.compile(
     r"^\s*\S.*?\s+in\s+\S.*?\s+when the screen shows\s+\S.*$", re.IGNORECASE)
 LOCAL_OWNER = "local"
+#: A tool the run may use unasked: a name or glob, maybe narrowed to fixed
+#: argument values -- ``call_service(domain=switch, entity_id=switch.lights_2)``.
+#: Yantra reads the form (its ``Grant``); checked here too, so a schedule
+#: never saves one that would be refused at its time.
+_VALUE = r'(?:"[^"]*"|[^,"()]*)'
+_PAIR = rf"\s*[A-Za-z_][A-Za-z0-9_.-]*\s*=\s*{_VALUE}\s*"
+GRANT = re.compile(rf"^[^\s()]+(?:\({_PAIR}(?:,{_PAIR})*\))?$")
 
 
 class ScheduleError(ValueError):
@@ -130,6 +137,7 @@ def create(store: Store, *, prompt: str, when: dict | str,
                 f"{step!r} is not a step on the phone: say <word> in <app> when "
                 'the screen shows <text> ("send in Messages when the screen '
                 'shows 555-0123")')
+    grants = check_grants(allow_tools)
     if (phone or steps) and runner != "dvara":
         raise ScheduleError("the phone is for the Dvara road, where the phone is")
     if steps and not phone:
@@ -160,7 +168,7 @@ def create(store: Store, *, prompt: str, when: dict | str,
     schedule = Schedule(
         id="", owner=owner, prompt=prompt, when=said["when"], tz=said["tz"],
         runner=runner, agent=agent, notify=notify,
-        allow_tools=[g.strip() for g in allow_tools or [] if g.strip()],
+        allow_tools=grants,
         time_limit=int(time_limit), browser_profile=browser_profile,
         created_at=iso(now), created_via=created_via, next_at=said["next"][0],
         phone=bool(phone), phone_steps=steps, wait=int(wait))
@@ -188,6 +196,34 @@ def _dvara_owner(dvara: Dvara | None, agent: str, owner: str) -> str:
         raise ScheduleError("say who this runs as: --as ACTOR (someone in "
                             "Dvara's actors file), or set SAMAY_DVARA_ACTOR")
     return person
+
+
+def check_grants(allow_tools: list[str] | None) -> list[str]:
+    """The tools a schedule may use unasked, each checked as a grant."""
+    grants = [g.strip() for g in allow_tools or [] if g.strip()]
+    for grant in grants:
+        if not GRANT.match(grant):
+            raise ScheduleError(
+                f"{grant!r} is not a tool to allow: a tool name ('browser_*'), or "
+                "one fixed to what it acts on, 'call_service(domain=switch, "
+                "entity_id=switch.lights_2)'")
+    return grants
+
+
+def allow(store: Store, schedule_id: str, allow_tools: list[str],
+          owner: str | None = None) -> Schedule:
+    """Let a schedule use more tools unasked, from its next run.
+
+    ADDED, NEVER REPLACED. The answer that brings this here is "it was
+    refused X; allow X" -- the yes given when the schedule was made
+    still stands beside it. Taking a tool away is a new schedule."""
+    schedule = find(store, schedule_id, owner)
+    grants = check_grants(allow_tools)
+    if not grants:
+        raise ScheduleError("say which tool to allow")
+    merged = list(dict.fromkeys([*schedule.allow_tools, *grants]))
+    store.update(schedule.id, allow_tools=merged)
+    return store.get(schedule.id)
 
 
 def find(store: Store, schedule_id: str, owner: str | None = None) -> Schedule:

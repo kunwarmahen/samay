@@ -106,6 +106,7 @@ samay show 67cad6f8        # one schedule in full (an id's first few letters do 
 samay run-now 67cad6f8     # once, now, here -- and wait for it
 samay pause 67cad6f8
 samay resume 67cad6f8      # its next time is worked out from now
+samay allow 67cad6f8 'web_fetch'   # one more tool it may use unasked, next run on
 samay rm 67cad6f8          # the schedule and its history
 ```
 
@@ -195,12 +196,13 @@ samay mcp --for local --agent ~/agents/reader    # what a harness starts
 | `preview_schedule` | checks a *when* and says it back in words, with the next three times |
 | `list_schedules`, `schedule_runs` | what this person has set up, and how it went |
 | `create_schedule` | saves one; the prompt is written for the agent's future self |
+| `allow_for_schedule` | lets a schedule use a tool it was refused, from its next run |
 | `pause_schedule`, `resume_schedule`, `delete_schedule` | |
 
 **The agent proposes and you accept.** The three reading tools are
-marked read-only and the four that change something aren't, so a
+marked read-only and the five that change something aren't, so a
 harness that honours the mark (Yantra does) asks you before every
-create, pause, resume and delete. In the browser that's a card, at the
+create, pause, resume, allow and delete. In the browser that's a card, at the
 terminal a y/N, on Telegram two buttons. The tools tell the model to
 preview first and tell you the sentence, so by the time the card
 arrives you've read what it means.
@@ -289,13 +291,35 @@ If a schedule is paused (see below), you're always told, whatever
 | The last run was still going | `skipped` | waits for the next time |
 | The browser profile was in use by another Yantra | `busy` | nothing; the next time tries again |
 | A site needs you to sign in again, or the agent had a question | `needs_person` | **pauses the schedule** and tells you what's needed |
+| It finished, but a tool it reached for wasn't allowed (or you said no) | `refused` | tells you what wasn't allowed and how to allow it (whatever `--notify` says, unless `never`); the schedule goes on |
 | It failed 3 times in a row | `failed` | **pauses the schedule** and tells you |
 | It ran past its time limit (default 10 minutes) | `timed_out` | stops it, browser and all |
 | Samay stopped while it ran | `interrupted` | doesn't run it again |
 
 Tools a run reached for and wasn't allowed are listed under the run
-(`not allowed: web_fetch, bash`). They don't stop anything. They're
-there so you can decide whether to allow them next time.
+(`not allowed: web_fetch, bash (samay allow ID TOOL)`), and the run is
+`refused`, not done: its reply may say *couldn't do it*, and a run
+filed as `ok` once left a light on that its person thought was off.
+The message you get ends with what wasn't allowed and the way out: say
+so in a chat with the agent (it calls `allow_for_schedule`, and you
+approve that card), or `samay allow ID 'TOOL'`. A one-off that has had
+its time says to ask for it again instead. A refused run doesn't count
+towards pausing — the model often finishes without the tool, and a
+pause would stop the part it could do
+([notes/07](notes/07-a-refused-run-is-not-done.md)).
+
+**A tool fixed to one thing.** `--allow-tools` (and an agent's
+`allow_tools`) takes a tool name or glob, or one tool fixed to exact
+argument values:
+
+```bash
+samay add "Turn off the stairs light" --when "once 2026-10-10T16:03" \
+      --allow-tools 'mcp__homeassistant-home__call_service(domain=switch, service=turn_off, entity_id=switch.lights_2)'
+```
+
+That covers the stairs light, not the front door the same tool can
+reach. Values match exactly (no globs); quote one with a comma in it.
+One Samay can't read is refused when the schedule is saved.
 
 ### Browser schedules
 
@@ -324,7 +348,7 @@ differ in *who* the run is, and where its answer can go.
 | Who does the work | Yantra, started here as a program | Yantra, inside Dvara, **as a person** on Dvara's actors file |
 | `--agent` | a package folder (or none) | an agent's name on Dvara's roster |
 | What may run unasked | read-only tools, plus `--allow-tools` | the same, but only what that person could have been asked about: the owner's deny rules still refuse, and a read-only person is never answered for |
-| A tool nobody allowed | refused, listed under the run | **put to the person** on Telegram; if they don't answer in time, the run is `held` until they do |
+| A tool nobody allowed | **put to the person** through Dvara when Samay knows one (`SAMAY_DVARA_URL`, and `SAMAY_DVARA_ACTOR` for `local`), waiting `--wait` minutes in all, then refused; with no Dvara, refused. Either way listed under the run | **put to the person** on Telegram; if they don't answer in time, the run is `held` until they do |
 | Who pays | nobody counts it | the person's **daily allowance** |
 | Where the answer goes | Dvara, if set up (see below); otherwise only `samay runs` | the person's channels |
 
@@ -395,12 +419,16 @@ src/samay/
 ├── when.py       the 'when' form: checked, said back in words, the next times,
 │                 a five-minute floor, time zones that survive a clock change
 ├── store.py      the SQLite file: schedules (the promise) and runs (the receipt)
-├── schedules.py  add / pause / resume / remove, the per-person cap, preview
+├── schedules.py  add / pause / resume / allow / remove, the per-person cap,
+│                 preview; a tool to allow checked as a grant (notes/07)
 ├── clock.py      the rules: missed, skipped, claimed before running, paused
 │                 after failures or a need, what is sent (a when_new run is
-│                 shown the last report, note 04); samay serve's loop
+│                 shown the last report, note 04), a refused run said as
+│                 one with the way to allow it (notes/07); samay serve's loop
 ├── runners.py    the direct road: yantra as a program, killed with its whole
-│                 process group at the time limit, only its JSON believed
+│                 process group at the time limit, only its JSON believed;
+│                 with a Dvara it tells that Yantra where to ask its person
+│                 (YANTRA_ASK_URL) and adds the wait to the limit (notes/07)
 ├── dvara.py      the Dvara road: POST /message as the person, unattended, with
 │                 what they allowed ahead of time, its wait, and the phone
 │                 and its steps when it works one (notes/06); answers out
@@ -421,7 +449,7 @@ src/samay/
 ## Status
 
 The clock, the records, the rules above, both roads, the page and the
-agent's tools all work, and are covered by 178 tests. The API is not
+agent's tools all work, and are covered by 195 tests. The API is not
 stable.
 
 Not here yet:

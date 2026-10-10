@@ -35,9 +35,12 @@ from pathlib import Path
 #: How a run ended. ``ok`` and ``quiet`` finished; ``quiet`` had nothing
 #: worth telling. The rest did not do the work, each for its own reason.
 OUTCOMES = ("ok", "quiet", "failed", "needs_person", "timed_out", "busy",
-            "held", "missed", "skipped", "interrupted", "running")
+            "held", "missed", "skipped", "interrupted", "running", "refused")
 
 #: Runs that count towards pausing a schedule after too many in a row.
+#: Not ``refused``: the model often finishes without the tool it was
+#: refused, and a schedule paused for reaching for one would stop doing
+#: the part it could do. Its person is told every time instead.
 FAILURES = ("failed", "timed_out", "interrupted")
 
 NOTIFY = ("always", "when_new", "never")
