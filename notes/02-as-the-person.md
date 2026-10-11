@@ -14,7 +14,8 @@ runs the turn *in Dvara*, as that person:
 ```
 samay ── POST /message ──▶ dvara ──▶ yantra turn, as "mahen"
   {actor: "mahen", agent: "scribe", unattended: true,
-   allow_tools: ["write_file"], thread: "samay-4dd8ac19-1791163020"}
+   allow_tools: ["write_file"], thread: "samay-4dd8ac19-1791163020",
+   came_by: "samay"}
                                        │ their allowance pays
                                        │ the owner's rules apply
                                        │ a question goes to their Telegram
@@ -22,6 +23,10 @@ samay ◀── reply (+ needs_person, busy, refused, held, run_id) ──┘
   │ worth telling?
   └── POST /notify {actor: "mahen", text} ──▶ dvara ──▶ their channels
 ```
+
+`came_by` is how Dvara's page labels the turn: **Samay**, beside the
+ones that came by Telegram, the page chat or the terminal (Dvara's
+notes/36).
 
 ## What "allowed ahead of time" may grant
 

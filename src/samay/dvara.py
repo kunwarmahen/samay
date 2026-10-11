@@ -126,6 +126,8 @@ class DvaraRunner:
         body = {"actor": actor, "agent": schedule.agent,
                 "thread": f"samay-{schedule.id}-{int(time.time())}",
                 "text": prompt, "unattended": True,
+                # so Dvara's page labels the turn as Samay's
+                "came_by": "samay",
                 "allow_tools": list(schedule.allow_tools),
                 "wait": schedule.wait * 60}
         limit = schedule.time_limit
