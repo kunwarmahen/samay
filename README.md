@@ -368,7 +368,9 @@ samay add "Any mail that needs me today?" --when "every 2h" \
 the default for both roads, so direct-road answers reach that person
 too. A schedule is checked against Dvara when it is made: an agent
 Dvara doesn't offer, or nobody to run as, is refused before anything
-is saved.
+is saved. Each run tells Dvara it came from Samay, so Dvara's page
+labels it `samay` beside Telegram, the web chat and the terminal, and
+its owner can filter by it.
 
 `--wait MINUTES` (default 30) is how long, in all, a run's questions may
 wait for the person. One that outwaits it **lapses**: refused, and the
@@ -431,8 +433,9 @@ src/samay/
 │                 (YANTRA_ASK_URL) and adds the wait to the limit (notes/07)
 ├── dvara.py      the Dvara road: POST /message as the person, unattended, with
 │                 what they allowed ahead of time, its wait, and the phone
-│                 and its steps when it works one (notes/06); answers out
-│                 through POST /notify. Standard library only
+│                 and its steps when it works one (notes/06), named as
+│                 Samay's (came_by); answers out through POST /notify.
+│                 Standard library only
 ├── http.py       the page and its JSON API, beside the clock in samay serve:
 │                 a token on every call, localhost by default
 ├── static/       the page: one file and its icon, nothing fetched from anywhere
