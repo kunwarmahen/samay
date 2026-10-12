@@ -299,6 +299,33 @@ class TestThePhone:
             schedules.create(Store(tmp_path / "d.sqlite3"), prompt="p", when="every 1h",
                              tz="UTC", phone=True)
 
+    def test_a_chat_with_the_phone_makes_a_phone_schedule_only_when_the_job_says_so(
+            self, tmp_path, dvara):
+        # Found live: minder always has the phone, so a Home Assistant job
+        # made in its chat was a phone schedule, and was skipped at its
+        # time because no phone was plugged in.
+        from samay.mcp import Tools
+        from tests.test_mcp import call
+
+        store = Store(tmp_path / "s.sqlite3")
+        tools = Tools(store, tmp_path, person="mahen", agent="reader",
+                      dvara=Dvara(dvara.url, TOKEN), phone=True)
+        failed, said = call(tools, "create_schedule", prompt="turn off the stairs switch",
+                            when="every 1h")
+        assert not failed, said
+        lights = store.schedules()[-1]
+        assert lights.runner == "dvara" and not lights.phone
+        call(tools, "create_schedule", prompt="read my texts", when="every 1h", phone=True)
+        assert store.schedules()[-1].phone
+        call(tools, "create_schedule", prompt="text Sam", when="every 1h",
+             phone_steps=[self.STEP])
+        assert store.schedules()[-1].phone          # steps on the phone imply it
+        no_phone = Tools(store, tmp_path, person="mahen", agent="reader",
+                         dvara=Dvara(dvara.url, TOKEN))
+        failed, said = call(no_phone, "create_schedule", prompt="p", when="every 1h",
+                            phone=True)
+        assert failed and "no phone" in said
+
     def test_an_older_file_gains_the_new_columns_and_keeps_its_schedules(self, tmp_path):
         import sqlite3
 

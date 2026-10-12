@@ -391,9 +391,12 @@ samay add "Text 555-0123: running late, home by 7" --when "daily at 08:00" \
 ```
 
 That Send goes through only while 555-0123 is on the screen; anything
-else held on the phone is asked in your chat. A schedule your agent
-makes in a chat that has the phone is a phone schedule already, and its
-card says what it may do there ([notes/06](notes/06-a-schedule-on-the-phone.md)).
+else held on the phone is asked in your chat. In a chat that has the
+phone, your agent makes a phone schedule only when the job itself works
+the phone (`phone: true`, or steps on it), and its card says what it may
+do there. A job done with other tools (switching a light through Home
+Assistant, reading mail) is not one, so it isn't held up, or skipped,
+by a phone that isn't there ([notes/06](notes/06-a-schedule-on-the-phone.md)).
 
 ## Settings
 

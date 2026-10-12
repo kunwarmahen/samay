@@ -170,9 +170,10 @@ class TestTheProtocol:
         assert len(Store(tmp_path / "samay.sqlite3").schedules()) == 1
 
 
-def test_a_turn_with_the_phone_makes_schedules_that_work_it(store, tmp_path):
-    """--phone (from Dvara): a schedule made here is a phone schedule --
-    on the direct road, which has no phone, that is said, not saved."""
+def test_steps_on_the_phone_need_the_dvara_road(store, tmp_path):
+    """--phone (from Dvara): a schedule made here may work the phone, when
+    the job says so -- on the direct road, which has no phone, that is
+    said, not saved (test_dvara holds which jobs are phone schedules)."""
     with_phone = tools_for(store, tmp_path, phone=True)
     failed, said = call(with_phone, "create_schedule", prompt="p", when="every 1h",
                         phone_steps=["send in Messages when the screen shows 555-0123"])

@@ -142,7 +142,7 @@ def create(store: Store, *, prompt: str, when: dict | str,
         raise ScheduleError("the phone is for the Dvara road, where the phone is")
     if steps and not phone:
         raise ScheduleError("steps on the phone are for a schedule that uses the "
-                            "phone (made where the phone is, or --phone)")
+                            "phone (phone: true, in a chat that has it; or --phone)")
     if not MIN_WAIT <= int(wait) <= MAX_WAIT:
         raise ScheduleError(f"wait must be between {MIN_WAIT} and {MAX_WAIT} "
                             f"minutes, got {wait}")

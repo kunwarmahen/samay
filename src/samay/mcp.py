@@ -118,6 +118,12 @@ TOOLS: list[dict] = [
                          "description": "Exact tool names or globs; a tool "
                          "that changes things fixed to its arguments as "
                          "tool(key=value, ...) with the exact values."},
+         "phone": {"type": "boolean",
+                   "description": "true only if the job itself works the person's "
+                   "phone (opens an app, taps, reads its screen). A job done with "
+                   "other tools -- Home Assistant, the web, mail -- is false, even "
+                   "in a chat that has the phone: a phone schedule waits for the "
+                   "phone and is skipped when it isn't there."},
          "phone_steps": {"type": "array", "items": {"type": "string"},
                          "description": "Held steps on the person's phone this may do "
                          "without asking, each as \"<word> in <app> when the screen "
@@ -169,7 +175,8 @@ class Tools:
                  dvara: Dvara | None = None, phone: bool = False) -> None:
         self.store = store
         #: This turn has the person's phone (``--phone``, from Dvara): a
-        #: schedule made here works it too.
+        #: schedule made here MAY work it, when it says so (``phone``, or
+        #: steps on the phone).
         self.phone = phone
         self.state = state
         self.person = person
@@ -228,6 +235,14 @@ class Tools:
         steps = args.get("phone_steps") or []
         if not isinstance(steps, list):
             raise ToolFailed("phone_steps is a list of sentences")
+        # THE JOB SAYS WHETHER IT WORKS THE PHONE, not the chat it was made
+        # in: an agent that always has the phone would otherwise make every
+        # schedule wait on it, and skip a Home Assistant job for a phone
+        # left unplugged.
+        works_phone = bool(args.get("phone")) or bool(steps)
+        if works_phone and not self.phone:
+            raise ToolFailed("this chat has no phone to give a schedule; leave out "
+                             "phone and phone_steps")
         made = schedules.create(
             self.store, prompt=str(args.get("prompt") or ""),
             when=_need(args, "when"), tz=args.get("tz") or None,
@@ -235,7 +250,7 @@ class Tools:
             notify=str(args.get("notify") or "when_new"),
             allow_tools=[str(g) for g in allow], created_via="agent",
             dvara=self.dvara if self.runner == "dvara" else None,
-            phone=self.phone, phone_steps=[str(s) for s in steps],
+            phone=works_phone, phone_steps=[str(s) for s in steps],
             wait=_minutes(args.get("wait")))
         said = f"Saved {made.id}: {schedules.sentence(made)}."
         if serving(self.state) is None:

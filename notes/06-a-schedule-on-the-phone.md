@@ -11,11 +11,20 @@ letting a schedule have the phone.
 
 Three fields, all on the Dvara road, where the phone is:
 
-* **`phone`**: it works the person's phone. A schedule made in a chat
-  turn that had the phone is one already: Dvara starts this person's
-  tools with `--phone`, and `create_schedule` marks what it makes. From
-  the command line, `--phone`. A run without it never gets the phone,
-  as before.
+* **`phone`**: it works the person's phone. In a chat turn that has
+  the phone (Dvara starts this person's tools with `--phone`),
+  `create_schedule` marks a schedule as one when the job says so: its
+  `phone` is true, or it has steps on the phone. From the command line,
+  `--phone`. A run without it never gets the phone, as before.
+
+  **THE JOB SAYS, NOT THE CHAT IT WAS MADE IN.** At first a schedule
+  made in a chat that had the phone was a phone schedule whatever it
+  did. An agent that always has the phone then made every schedule wait
+  on it: *"turn the master bedroom lights off at 20:59"*, a Home
+  Assistant job, was `skipped: the phone couldn't be reached` because
+  no phone was plugged in. Now the model says, and the card shows *IT
+  WORKS YOUR PHONE* only when it does. Asking for the phone in a chat
+  that has none is an error the model reads, never a schedule saved.
 * **`phone_steps`**: held steps it may do without asking, each as the
   person accepted it, in the one form Sparsh reads: *"send in Messages
   when the screen shows 555-0123"*. Checked against that form when the
@@ -84,6 +93,7 @@ schedule texting 555-0199 with the same step was held at Send:
 `tests/test_dvara.py`: a phone run carries its steps and its wait, and
 a run without the phone says nothing of it; a skip is not a failure;
 steps are checked and need the phone, and the phone needs the Dvara
-road; an older file gains the columns and keeps its schedules.
-`tests/test_mcp.py`: a turn with the phone makes schedules that work
-it. 167 tests before, 173 after.
+road; an older file gains the columns and keeps its schedules; a chat
+with the phone makes a phone schedule only when the job says so.
+`tests/test_mcp.py`: steps on the phone need the Dvara road. 167 tests
+before, 173 after; 196 with the job deciding.
