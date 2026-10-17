@@ -90,7 +90,7 @@ schedule texting 555-0199 with the same step was held at Send:
 
 ## A phone schedule made where there is no phone
 
-Asked from Yantra in Sarathi's container (*"every morning at 8, open
+Asked on Yantra's page in Sarathi's container (*"every morning at 8, open
 Settings on my iPhone and tell me what the Battery row says"*), the agent
 made a direct-road schedule granting `mcp__sparsh__open_app`, `look`,
 `tap` and `scroll`. Its run had no phone: a run started by the clock
