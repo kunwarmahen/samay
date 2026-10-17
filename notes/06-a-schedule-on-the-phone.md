@@ -118,6 +118,10 @@ with `YANTRA_PHONE_RUN` and the `YANTRA_ASK_*` it already had, so a held
 Send is a question in the person's chat. Steps allowed ahead of time
 (`phone_steps`) stay the Dvara road's.
 
+Run for real in Sarathi's containers: a phone schedule made on Yantra's
+page, on an iPhone 17 with `qwen3.8-64k:latest` on Ollama, was checked by
+Dvara, worked the iPhone and answered.
+
 A schedule that grants Sparsh's tools without being a phone schedule
 (made in a chat with no phone to give) is refused when it's made.
 
