@@ -140,6 +140,18 @@ def create(store: Store, *, prompt: str, when: dict | str,
     grants = check_grants(allow_tools)
     if (phone or steps) and runner != "dvara":
         raise ScheduleError("the phone is for the Dvara road, where the phone is")
+    # A PHONE TOOL ON THE DIRECT ROAD IS A PROMISE IT CAN'T KEEP. A run
+    # with nobody watching gets no phone (Yantra's sparsh_link: nobody is
+    # there to say yes to a held Send), so a direct-road schedule that
+    # grants Sparsh's tools would wake up without them. Made from Yantra in
+    # Sarathi's container, one did: it read the battery from Home
+    # Assistant instead, every morning. Refused now, with where to ask.
+    if runner != "dvara" and any(g.startswith("mcp__sparsh__") for g in grants):
+        raise ScheduleError(
+            "a schedule that works the phone runs through Dvara, where the phone "
+            "is: ask for it from Telegram or Sarathi's home page chat (or samay "
+            "add ... --runner dvara --agent NAME --phone); a run started here has "
+            "no phone, since nobody would be there to say yes")
     if steps and not phone:
         raise ScheduleError("steps on the phone are for a schedule that uses the "
                             "phone (phone: true, in a chat that has it; or --phone)")

@@ -88,6 +88,28 @@ schedule texting 555-0199 with the same step was held at Send:
     "Send SMS — SMS" in com.google.android.apps.messaging -- held because it says "send".
 ```
 
+## A phone schedule made where there is no phone
+
+Asked from Yantra in Sarathi's container (*"every morning at 8, open
+Settings on my iPhone and tell me what the Battery row says"*), the agent
+made a direct-road schedule granting `mcp__sparsh__open_app`, `look`,
+`tap` and `scroll`. Its run had no phone: a run started by the clock
+with nobody watching gets none, because a held Send would have nobody to
+ask. So it answered from Home Assistant's battery sensor instead, and
+said so, and would have every morning:
+
+```
+d96e2b7a  active  every day at 08:00
+          last: ok  Sat 17 Oct 16:54  "I don't have a tool that can open the iPhone's Settings app…"
+          runner: direct
+          allowed: mcp__sparsh__open_app, mcp__sparsh__look, mcp__sparsh__tap, mcp__sparsh__scroll
+```
+
+A direct-road schedule that grants Sparsh's tools is now refused when
+it's made, with where to ask: Telegram or Sarathi's home page chat, the
+Dvara road, where the phone is. Re-routing it there unasked would mean
+picking one of Dvara's agents for the person, so it's said instead.
+
 ## What the tests hold
 
 `tests/test_dvara.py`: a phone run carries its steps and its wait, and
