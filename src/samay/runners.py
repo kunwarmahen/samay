@@ -113,6 +113,15 @@ class DirectRunner:
     question (``$YANTRA_ASK_URL``): the person's chat, waiting the
     schedule's ``wait`` in all, and the time limit grows by that wait --
     waiting for a yes is not the work.
+
+    A DIRECT RUN MAY WORK THE PHONE, the same way: only when its person
+    can be asked. A phone schedule (made on Yantra's page, which had the
+    phone and a Dvara to ask through) first gets Dvara's own check
+    (``POST /phone/ready``: in someone's hand, waited on; locked, its
+    person asked to unlock it; asleep, woken), then a Yantra told it may
+    use the phone (``$YANTRA_PHONE_RUN``), whose held Sends are asked in
+    the person's chat like every other question. With nobody to ask, it
+    is skipped, and says why.
     """
 
     def __init__(self, work: Path, *, command: list[str] | None = None,
@@ -150,17 +159,45 @@ class DirectRunner:
             for key in ("YANTRA_ASK_URL", "YANTRA_ASK_TOKEN", "YANTRA_ASK_ACTOR",
                         "YANTRA_ASK_WAIT"):
                 env.pop(key, None)
+        if schedule.phone and whom:
+            env["YANTRA_PHONE_RUN"] = "1"
+        else:
+            env.pop("YANTRA_PHONE_RUN", None)
         return env
 
     def time_limit(self, schedule: Schedule) -> int:
         """The work's limit, plus the wait for a yes when it can ask."""
         return schedule.time_limit + (schedule.wait * 60 if self.asks_whom(schedule) else 0)
 
+    def ready(self, schedule: Schedule) -> RunResult | None:
+        """For a phone schedule, Dvara's word that the phone is free; a
+        skipped result when it isn't, or when there's nobody to ask."""
+        if not schedule.phone:
+            return None
+        whom = self.asks_whom(schedule)
+        if not whom:
+            return RunResult(ok=True, stop_reason="skipped", skipped=True, detail=(
+                "skipped: this schedule works the phone, and there's no Dvara here "
+                "to ask its person through (SAMAY_DVARA_URL, SAMAY_DVARA_ACTOR)"))
+        from samay.dvara import DvaraError
+
+        try:
+            why = self.ask.phone_ready(whom, schedule.wait * 60, schedule.prompt)
+        except (DvaraError, TimeoutError) as exc:
+            return RunResult(ok=True, stop_reason="skipped", skipped=True,
+                             detail=f"skipped: the phone couldn't be checked ({exc})")
+        if why is not None:
+            return RunResult(ok=True, stop_reason="skipped", skipped=True, detail=why)
+        return None
+
     def run(self, schedule: Schedule, prompt: str) -> RunResult:
         try:
             argv = self.argv(schedule, prompt)
         except RunnerMissing as exc:
             return RunResult(ok=False, stop_reason="error", detail=str(exc))
+        skipped = self.ready(schedule)
+        if skipped is not None:
+            return skipped
         (self.work / schedule.id).mkdir(parents=True, exist_ok=True)
         cwd = self.home if self.home and self.home.is_dir() else self.work
         try:

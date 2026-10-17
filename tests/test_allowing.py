@@ -138,3 +138,51 @@ class TestTheDirectRoadCanAsk:
         runner = DirectRunner(tmp_path, ask=Dvara("http://dvara:8765", "tok"))
         assert runner.asks_whom(schedule()) == ""
         assert "YANTRA_ASK_URL" not in runner.env(schedule())
+
+
+class StubDvara(Dvara):
+    """A Dvara whose phone check answers as told, and remembers it was asked."""
+
+    def __init__(self, why=None):
+        super().__init__("http://dvara:8765", "tok", actor="owner")
+        self.why, self.asked = why, []
+
+    def phone_ready(self, actor, wait, about):
+        self.asked.append((actor, wait, about))
+        return self.why
+
+
+class TestTheDirectRoadMayWorkThePhone:
+    """Made on Yantra's page, a schedule that reads the iPhone's battery ran
+    on the direct road with no phone, and answered from Home Assistant."""
+
+    def test_a_phone_schedule_is_checked_by_dvara_then_runs_with_the_phone(self, tmp_path):
+        dvara = StubDvara()
+        runner = DirectRunner(tmp_path / "work", command=fake_yantra(tmp_path), ask=dvara)
+        assert runner.run(schedule(phone=True, prompt="read the battery row"), "p").ok
+        assert dvara.asked == [("owner", 1200, "read the battery row")]
+        assert runner.env(schedule(phone=True))["YANTRA_PHONE_RUN"] == "1"
+        assert "YANTRA_PHONE_RUN" not in runner.env(schedule())
+
+    def test_a_phone_dvara_says_isnt_free_is_skipped_and_yantra_never_started(
+            self, tmp_path):
+        runner = DirectRunner(tmp_path / "work", command=fake_yantra(tmp_path),
+                              ask=StubDvara("skipped: the phone stayed locked"))
+        got = runner.run(schedule(phone=True), "p")
+        assert got.skipped and "stayed locked" in got.detail
+        assert not (tmp_path / "env.json").exists()
+
+    def test_with_nobody_to_ask_a_phone_schedule_is_skipped_and_says_why(self, tmp_path):
+        got = DirectRunner(tmp_path / "work", command=fake_yantra(tmp_path)).run(
+            schedule(phone=True), "p")
+        assert got.skipped and "no Dvara here" in got.detail
+
+    def test_made_in_a_chat_with_the_phone_granting_its_tools_it_is_a_phone_schedule(
+            self, tmp_path):
+        store = Store(tmp_path / "s.sqlite3")
+        tools = Tools(store, tmp_path, person="local", phone=True)
+        text = tools.call("create_schedule", {
+            "prompt": "read the battery row", "when": "every 1d",
+            "allow_tools": ["mcp__sparsh__look", "mcp__sparsh__tap"]})
+        made = store.schedules()[-1]
+        assert made.phone and made.runner == "direct", text

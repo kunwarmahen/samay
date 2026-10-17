@@ -138,20 +138,22 @@ def create(store: Store, *, prompt: str, when: dict | str,
                 'the screen shows <text> ("send in Messages when the screen '
                 'shows 555-0123")')
     grants = check_grants(allow_tools)
-    if (phone or steps) and runner != "dvara":
-        raise ScheduleError("the phone is for the Dvara road, where the phone is")
-    # A PHONE TOOL ON THE DIRECT ROAD IS A PROMISE IT CAN'T KEEP. A run
-    # with nobody watching gets no phone (Yantra's sparsh_link: nobody is
-    # there to say yes to a held Send), so a direct-road schedule that
-    # grants Sparsh's tools would wake up without them. Made from Yantra in
-    # Sarathi's container, one did: it read the battery from Home
-    # Assistant instead, every morning. Refused now, with where to ask.
-    if runner != "dvara" and any(g.startswith("mcp__sparsh__") for g in grants):
+    if steps and runner != "dvara":
+        raise ScheduleError("steps on the phone the person allowed ahead of time are "
+                            "for the Dvara road, where its grants are kept")
+    # A PHONE TOOL WITHOUT THE PHONE IS A PROMISE IT CAN'T KEEP. A direct
+    # run gets the phone only when the schedule says it works it (``phone``,
+    # made in a turn that had the phone and a Dvara to ask through). One
+    # that merely granted Sparsh's tools woke up without them: made on
+    # Yantra's page, it read the battery from Home Assistant instead, every
+    # morning. Refused now, with where to ask.
+    if not phone and runner != "dvara" and any(g.startswith("mcp__sparsh__")
+                                               for g in grants):
         raise ScheduleError(
-            "a schedule that works the phone runs through Dvara, where the phone "
-            "is: ask for it from Telegram or Sarathi's home page chat (or samay "
-            "add ... --runner dvara --agent NAME --phone); a run started here has "
-            "no phone, since nobody would be there to say yes")
+            "a schedule that works the phone says so (phone: true), in a chat that "
+            "has the phone and a Dvara to ask through -- Yantra's page with Sarathi, "
+            "Telegram, or Sarathi's home page chat; a run nobody can be asked about "
+            "gets no phone")
     if steps and not phone:
         raise ScheduleError("steps on the phone are for a schedule that uses the "
                             "phone (phone: true, in a chat that has it; or --phone)")

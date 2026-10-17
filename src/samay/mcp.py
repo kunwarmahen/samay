@@ -239,7 +239,11 @@ class Tools:
         # in: an agent that always has the phone would otherwise make every
         # schedule wait on it, and skip a Home Assistant job for a phone
         # left unplugged.
-        works_phone = bool(args.get("phone")) or bool(steps)
+        # A job granting Sparsh's tools, made in a chat with the phone,
+        # works the phone whether or not the model also said phone: true.
+        grants_phone = any(str(g).startswith("mcp__sparsh__")
+                           for g in args.get("allow_tools") or [])
+        works_phone = bool(args.get("phone")) or bool(steps) or (self.phone and grants_phone)
         if works_phone and not self.phone:
             raise ToolFailed("this chat has no phone to give a schedule; leave out "
                              "phone and phone_steps")

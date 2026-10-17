@@ -105,10 +105,21 @@ d96e2b7a  active  every day at 08:00
           allowed: mcp__sparsh__open_app, mcp__sparsh__look, mcp__sparsh__tap, mcp__sparsh__scroll
 ```
 
-A direct-road schedule that grants Sparsh's tools is now refused when
-it's made, with where to ask: Telegram or Sarathi's home page chat, the
-Dvara road, where the phone is. Re-routing it there unasked would mean
-picking one of Dvara's agents for the person, so it's said instead.
+**The direct road may work the phone, when its person can be asked.**
+Re-routing such a schedule to the Dvara road would mean picking one of
+Dvara's agents for the person, so the direct road gets the phone itself,
+by the same rules: the chat it was made in had the phone and this Samay
+knows a Dvara (`local_to`), so it's saved with `phone`. At its time,
+`DirectRunner.ready` asks Dvara's `POST /phone/ready`, the same check a
+Dvara-road phone run gets (in use: waited on for ten minutes; locked:
+its person asked to unlock it, for the schedule's wait; asleep: woken).
+A skip is logged as one, and Yantra is never started. Then Yantra runs
+with `YANTRA_PHONE_RUN` and the `YANTRA_ASK_*` it already had, so a held
+Send is a question in the person's chat. Steps allowed ahead of time
+(`phone_steps`) stay the Dvara road's.
+
+A schedule that grants Sparsh's tools without being a phone schedule
+(made in a chat with no phone to give) is refused when it's made.
 
 ## What the tests hold
 

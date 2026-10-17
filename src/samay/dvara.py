@@ -110,6 +110,15 @@ class Dvara:
     def notify(self, actor: str, text: str) -> dict:
         return self.call("POST", "/notify", {"actor": actor, "text": text})
 
+    def phone_ready(self, actor: str, wait: float, about: str) -> str | None:
+        """Dvara's check before a run elsewhere works the phone: None to
+        go, else why it's skipped. It waits as Dvara does (a phone in hand
+        up to PHONE_IN_USE, a locked one ``wait``), so the call does too."""
+        said = self.call("POST", "/phone/ready",
+                         {"actor": actor, "wait": wait, "about": about},
+                         timeout=PHONE_IN_USE + wait + QUICK)
+        return None if said.get("go") else str(said.get("said") or "skipped")
+
 
 class DvaraRunner:
     """Run a schedule's turn through Dvara, as its person."""

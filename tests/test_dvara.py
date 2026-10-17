@@ -295,9 +295,14 @@ class TestThePhone:
                                  phone_steps=["send to 555-0123"])
         with pytest.raises(schedules.ScheduleError, match="uses the phone"):
             TestMakingOne().make(tmp_path, dvara, owner="mahen", phone_steps=[self.STEP])
+        # the phone itself may go on the direct road (it asks through Dvara
+        # before it runs); grants kept for held steps are the Dvara road's
+        direct = schedules.create(Store(tmp_path / "d.sqlite3"), prompt="p",
+                                  when="every 1h", tz="UTC", phone=True)
+        assert direct.phone and direct.runner == "direct"
         with pytest.raises(schedules.ScheduleError, match="Dvara road"):
-            schedules.create(Store(tmp_path / "d.sqlite3"), prompt="p", when="every 1h",
-                             tz="UTC", phone=True)
+            schedules.create(Store(tmp_path / "e.sqlite3"), prompt="p", when="every 1h",
+                             tz="UTC", phone=True, phone_steps=[self.STEP])
 
     def test_a_chat_with_the_phone_makes_a_phone_schedule_only_when_the_job_says_so(
             self, tmp_path, dvara):

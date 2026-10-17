@@ -397,10 +397,14 @@ the phone (`phone: true`, or steps on it), and its card says what it may
 do there. A job done with other tools (switching a light through Home
 Assistant, reading mail) is not one, so it isn't held up, or skipped,
 by a phone that isn't there ([notes/06](notes/06-a-schedule-on-the-phone.md)).
-A schedule made at this computer (the direct road) that grants the
-phone's tools (`mcp__sparsh__*`) is refused, with where to ask instead:
-a run started here has no phone, since nobody would be there to say yes,
-so it would wake up without the tools it was made for.
+A schedule made at this computer (the direct road) may work the phone
+too, when the chat it was made in had the phone and this Samay knows a
+Dvara to ask through (`SAMAY_DVARA_URL`, `SAMAY_DVARA_ACTOR`): before it
+runs, Dvara checks the phone is free (`POST /phone/ready`), then Yantra
+starts with the phone (`YANTRA_PHONE_RUN`) and asks a held Send in the
+person's chat. With nobody to ask it is skipped, and says why. One that
+grants the phone's tools without being a phone schedule is refused when
+it's made: it would wake up without them.
 
 ## Settings
 

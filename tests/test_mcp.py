@@ -182,15 +182,15 @@ def test_steps_on_the_phone_need_the_dvara_road(store, tmp_path):
 
 
 def test_a_schedule_here_that_grants_phone_tools_is_refused_with_where_to_ask(store, tmp_path):
-    """Made from Yantra in Sarathi's container, a direct-road schedule
-    granted Sparsh's tools; its run had no phone (nobody to say yes) and
-    read the battery from Home Assistant instead. Said now, not saved."""
+    """Made on Yantra's page, a direct-road schedule granted Sparsh's tools
+    in a chat that had no phone to give; its run had none and read the
+    battery from Home Assistant instead. Said now, not saved."""
     tools = tools_for(store, tmp_path)
     failed, said = call(tools, "create_schedule", prompt="read the battery row",
                         when="every day at 08:00",
                         allow_tools=["mcp__sparsh__look", "mcp__sparsh__tap"])
-    assert failed and "runs through Dvara, where the phone is" in said
-    assert "Telegram or Sarathi's home page chat" in said
+    assert failed and "says so (phone: true), in a chat that has the phone" in said
+    assert "a run nobody can be asked about gets no phone" in said
     assert store.schedules() == []
     # a direct schedule granting other tools is untouched
     failed, _ = call(tools, "create_schedule", prompt="p", when="every 1h",
