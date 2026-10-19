@@ -17,8 +17,9 @@ import json
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -136,6 +137,21 @@ class TestWhatThePageDoes:
         assert only["sentence"].startswith("every 2 hours")
         # Every two hours: twelve times in the next day.
         assert len(only["upcoming"]) == 12
+
+    def test_the_week_ahead_and_the_runs_behind(self, site):
+        card = add(site)
+        status, listed = call(site, "GET", "/api/schedules?ahead=7")
+        # Every two hours for a week: 84 times (85 if one falls on the edge).
+        assert len(listed["schedules"][0]["upcoming"]) in (84, 85)
+        now = datetime.now(UTC)
+        for hours in (50, 20, 2):
+            site.store.start_run(card["id"], now - timedelta(hours=hours),
+                                 outcome="missed", at=now - timedelta(hours=hours))
+        since = (now - timedelta(days=1)).isoformat()
+        status, body = call(site, "GET", "/api/runs?since="
+                            + urllib.parse.quote(since))
+        assert status == 200 and len(body["runs"]) == 2
+        assert call(site, "GET", "/api/runs?since=yesterday")[0] == 400
 
     def test_pause_resume_delete(self, site):
         card = add(site)

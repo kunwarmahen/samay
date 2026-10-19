@@ -109,7 +109,7 @@ why the card shows the arguments:
 ![The page](../docs/page.png)
 
 **THE DAY IS THE MEMORABLE THING.** A scheduler's page should look like
-time. The strip at the top is the next 24 hours, with lines on the real
+time. The strip at the top is the day on both sides of now, with lines on the real
 hours, a marigold line for *now*, and a dot for every run due, one lane
 per schedule. Click a dot and its schedule is highlighted below.
 Everything else is deliberately quiet: rows, not cards, each led by
@@ -144,6 +144,20 @@ and in dark mode. Three fixes came out of that review:
   small);
 * the strip's lines now sit on real hours, not on "now + 6 hours";
 * "paused by you" stopped using the warning colour.
+
+**BOTH SIDES OF NOW.** A strip of only what's coming answers "what
+will happen" but not "did it happen", and the second is the question a
+person opens the page with. A schedule that ran at 06:00 left nothing
+on a strip that started at *now*, and a quiet evening drew an empty
+box. So *now* sits in the middle: the left half is the last day, a
+filled dot for every run, coloured as its outcome chip is; the right
+half is the next day, a gold ring for every run due. Filled for what
+happened, hollow for what hasn't, so the two read apart without the
+colours. Each schedule has its own row with its name at the left, so a
+dot says whose run it was without hovering. **Week** stretches both
+halves to seven days, with the day's name in the middle of each day.
+The API grew the two things the page needed and nothing else:
+`/api/runs?since=` and `/api/schedules?ahead=`.
 
 ## `samay status --json`
 

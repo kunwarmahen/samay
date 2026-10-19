@@ -77,23 +77,62 @@ header { display: flex; align-items: flex-end; gap: 18px; flex-wrap: wrap; }
 .dot.on { background: var(--ok); }
 
 /* -- the day: the one bold thing on the page --------------------------- */
+/* Two sides of one line: what ran (left, filled, coloured by how it went)
+   and what will run (right, gold rings), a row for each schedule. */
 .day { margin: 30px 0 34px; }
-.day h2 { font-size: 14px; font-weight: 600; color: var(--ink-2); margin: 0 0 10px; }
-.strip { position: relative; height: 74px; border-top: 1px solid var(--line);
-         border-bottom: 1px solid var(--line); margin-bottom: 26px; }
+.day-bar { display: flex; align-items: baseline; gap: 12px; margin: 0 0 12px; }
+.day-bar h2 { font-size: 14px; font-weight: 600; color: var(--ink-2); margin: 0; }
+.range { margin-left: auto; display: inline-flex; border: 1px solid var(--line);
+         border-radius: 999px; padding: 2px; background: var(--sheet); }
+.range button { border: 0; background: none; border-radius: 999px; padding: 2px 12px;
+                font-size: 13px; color: var(--ink-2); cursor: pointer; }
+.range button[aria-pressed="true"] { background: var(--gold-soft); color: var(--ink);
+                                     font-weight: 600; }
+.chart { display: grid; grid-template-columns: minmax(0, 150px) minmax(0, 1fr);
+         column-gap: 12px; }
+.chart .names { padding-top: 22px; }
+.chart .name { height: 28px; line-height: 28px; font-size: 13px; color: var(--ink-2);
+               white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+               cursor: pointer; background: none; border: 0; padding: 0;
+               text-align: left; width: 100%; display: block; }
+.chart .name:hover { color: var(--ink); }
+.chart .name.paused { color: var(--ink-3); font-style: italic; }
+.strip { position: relative; padding-top: 22px; padding-bottom: 26px; }
+.strip .side { position: absolute; top: 0; font-size: 12px; color: var(--ink-3); }
+.strip .side.past { left: 0; }
+.strip .side.future { right: 0; }
+.strip .field { position: relative; border-top: 1px solid var(--line);
+                border-bottom: 1px solid var(--line); min-height: 28px; }
+.strip .gone { position: absolute; top: 0; bottom: 0; left: 0; width: 50%;
+               background: var(--sunk); opacity: .55; }
+.strip .lane { position: relative; height: 28px; }
+.strip .lane + .lane { border-top: 1px dashed var(--line); }
 .strip .line { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line); }
 .strip .line.major { background: var(--ink-3); opacity: .45; }
 .strip .hour { position: absolute; bottom: -21px; font-size: 12px; white-space: nowrap;
                color: var(--ink-3); transform: translateX(-50%);
                font-variant-numeric: tabular-nums; }
-.strip .hour.first { transform: none; }
-.strip .now { position: absolute; top: -6px; bottom: -6px; left: 0; width: 3px;
-              background: var(--gold); border-radius: 2px; }
-.strip .tick { position: absolute; width: 10px; height: 10px; border-radius: 50%;
-               background: var(--gold); border: 2px solid var(--sheet);
-               transform: translate(-50%, -50%); cursor: pointer; padding: 0; }
-.strip .tick:hover, .strip .tick:focus-visible { transform: translate(-50%, -50%) scale(1.5); }
-.day .empty { color: var(--ink-3); font-size: 14px; margin: 0; }
+.strip .now { position: absolute; top: -8px; bottom: -8px; left: 50%; width: 3px;
+              margin-left: -1px; background: var(--gold); border-radius: 2px; z-index: 2; }
+.strip .now-label { position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+                    font-size: 12px; font-weight: 600; color: var(--gold); }
+.strip .tick { position: absolute; top: 50%; width: 11px; height: 11px; border-radius: 50%;
+               transform: translate(-50%, -50%); cursor: pointer; padding: 0; z-index: 1;
+               border: 2px solid var(--sheet); background: var(--quiet); }
+.strip.week .tick { width: 8px; height: 8px; border-width: 1px; }
+.strip .tick.ahead { background: var(--sheet); border: 2px solid var(--gold); }
+.strip .tick.ok { background: var(--ok); }
+.strip .tick.failed, .strip .tick.timed_out, .strip .tick.refused { background: var(--bad); }
+.strip .tick.needs_person, .strip .tick.held { background: var(--needs); }
+.strip .tick.running { background: var(--gold); }
+.strip .tick:hover, .strip .tick:focus-visible { transform: translate(-50%, -50%) scale(1.5); z-index: 3; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 4px 0 0;
+          padding: 0; list-style: none; font-size: 12px; color: var(--ink-3); }
+.legend li::before { content: ""; display: inline-block; width: 9px; height: 9px;
+                     border-radius: 50%; margin-right: 6px; vertical-align: -1px;
+                     background: var(--k); border: 2px solid var(--k); }
+.legend li.ahead::before { background: transparent; }
+.day .empty { color: var(--ink-3); font-size: 14px; margin: 8px 0 0; }
 
 /* -- toolbar, notices -------------------------------------------------- */
 .bar { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
@@ -181,6 +220,7 @@ details.more[open] summary { margin-bottom: 12px; }
   .item { grid-template-columns: 1fr; }
   .item .ops, .history { grid-column: 1; }
   .item .when .t { font-size: 20px; display: inline; margin-right: 8px; }
+  .chart { grid-template-columns: minmax(0, 84px) minmax(0, 1fr); column-gap: 8px; }
   .row2 { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -197,9 +237,25 @@ details.more[open] summary { margin-bottom: 12px; }
   </header>
 
   <section class="day" aria-labelledby="day-title">
-    <h2 id="day-title">The next 24 hours</h2>
-    <div class="strip" id="strip" role="list"></div>
-    <p class="empty hidden" id="day-empty">Nothing runs in the next 24 hours.</p>
+    <div class="day-bar">
+      <h2 id="day-title">The last day and the next</h2>
+      <div class="range" role="group" aria-label="How far to look">
+        <button type="button" data-days="1" aria-pressed="true">Day</button>
+        <button type="button" data-days="7" aria-pressed="false">Week</button>
+      </div>
+    </div>
+    <div class="chart">
+      <div class="names" id="names"></div>
+      <div class="strip" id="strip" role="list"></div>
+    </div>
+    <ul class="legend" aria-label="What the marks mean">
+      <li style="--k: var(--ok)">done</li>
+      <li style="--k: var(--quiet)">nothing new, missed or skipped</li>
+      <li style="--k: var(--needs)">needs you</li>
+      <li style="--k: var(--bad)">failed</li>
+      <li class="ahead" style="--k: var(--gold)">coming up</li>
+    </ul>
+    <p class="empty hidden" id="day-empty"></p>
   </section>
 
   <p class="note bad hidden" id="error" role="alert"></p>
@@ -344,53 +400,124 @@ details.more[open] summary { margin-bottom: 12px; }
   const chip = (outcome) => el("span", "out " + outcome, OUTCOME[outcome] || outcome);
 
   // -- the day ---------------------------------------------------------------
-  function drawDay(cards) {
-    const strip = $("strip");
-    strip.replaceChildren();
-    const start = Date.now(), span = 86400000;
-    // Lines on the real hours, a darker one and a label every six (midnight,
-    // 6, noon, 18): a schedule at 08:00 should sit where 08:00 is.
+  // "now" in the middle: what ran in the last day (or week) on the left,
+  // what will run in the next on the right, one row for each schedule.
+  let days = 1;
+  try { if (localStorage.getItem("samay-range") === "7") days = 7; } catch (_) {}
+  function drawRange() {
+    document.querySelectorAll(".range button").forEach((b) =>
+      b.setAttribute("aria-pressed", String(Number(b.dataset.days) === days)));
+    $("day-title").textContent = days === 1 ? "The last day and the next" : "The last week and the next";
+  }
+  document.querySelectorAll(".range button").forEach((b) => b.addEventListener("click", () => {
+    days = Number(b.dataset.days);
+    try { localStorage.setItem("samay-range", String(days)); } catch (_) {}
+    drawRange();
+    refresh().catch(showError);
+  }));
+  drawRange();
+
+  const short = (text, n) => text.length > n ? text.slice(0, n - 1) + "…" : text;
+
+  function drawDay(cards, runs) {
+    const strip = $("strip"), names = $("names");
+    strip.replaceChildren(); names.replaceChildren();
+    strip.classList.toggle("week", days === 7);
+    const now = Date.now(), half = days * 86400000;
+    const from = now - half, span = 2 * half;
+    const at = (t) => ((t - from) / span * 100) + "%";
+
+    // Which schedules get a row: any that ran or will run in the window.
+    const byId = new Map(cards.map((c) => [c.id, c]));
+    const ran = new Map();
+    runs.forEach((run) => {
+      const t = new Date(run.started_at || run.due_at).getTime();
+      if (t < from || t > now || !byId.has(run.schedule)) return;
+      if (!ran.has(run.schedule)) ran.set(run.schedule, []);
+      ran.get(run.schedule).push({ t, run });
+    });
+    const rows = cards.filter((c) => ran.has(c.id)
+      || (c.upcoming || []).some((iso) => new Date(iso).getTime() <= now + half));
+
+    strip.append(el("span", "side past", days === 1 ? "← last 24 hours" : "← last 7 days"),
+                 el("span", "side future", days === 1 ? "next 24 hours →" : "next 7 days →"),
+                 el("span", "now-label", "now"));
+    const field = el("div", "field");
+    field.append(el("div", "gone"));
+
+    // Day: a line every hour, darker and labelled every six (every twelve
+    // on a phone; midnight by its day). Week: a line at each midnight, and
+    // the day's name in the middle of its day.
+    const wide = strip.clientWidth || 700, gap = span / wide;   // one pixel of time
+    const every = wide < 420 ? 12 : 6;
+    const step = days === 1 ? 3600000 : 86400000;
+    const first = new Date(from);
+    if (days === 1) first.setMinutes(0, 0, 0); else first.setHours(0, 0, 0, 0);
     const hourOnly = new Intl.DateTimeFormat(undefined, { hour: "numeric" });
-    const first = new Date(start); first.setMinutes(0, 0, 0);
-    for (let t = first.getTime() + 3600000; t < start + span; t += 3600000) {
-      const at = new Date(t), left = ((t - start) / span * 100) + "%";
-      const major = at.getHours() % 6 === 0;
+    const weekday = new Intl.DateTimeFormat(undefined, { weekday: "short" });
+    for (let t = first.getTime() + step; t < from + span; t += step) {
+      const d = new Date(t);
+      if (days === 7) d.setHours(0, 0, 0, 0);   // a DST day is 23 or 25 hours
+      const x = d.getTime();
+      const major = days === 7 || d.getHours() % 6 === 0;
+      const named = days === 7 ? x + 43200000 : x;
       const line = el("div", "line" + (major ? " major" : ""));
-      line.style.left = left;
-      strip.append(line);
-      // Kept clear of "now" at the left and of the right edge.
-      if (major && t - start > span * 0.14 && start + span - t > span * 0.05) {
-        const label = el("span", "hour", hourOnly.format(at));
-        label.style.left = left;
-        strip.append(label);
+      line.style.left = at(x);
+      field.append(line);
+      // Kept clear of "now" in the middle and of both edges.
+      const clear = Math.abs(named - now) > gap * 16 && named - from > gap * 16
+                    && from + span - named > gap * 16;
+      if (major && clear && (days === 7 || d.getHours() % every === 0)) {
+        const text = days === 7 ? weekday.format(d)
+          : d.getHours() === 0 ? weekday.format(d) : hourOnly.format(d);
+        const label = el("span", "hour", text);
+        label.style.left = at(named);
+        field.append(label);
       }
+      if (days === 7) t = x;
     }
-    const nowLabel = el("span", "hour first", "now");
-    nowLabel.style.left = "0";
-    const now = el("div", "now"); now.title = "now";
-    strip.append(now, nowLabel);
-    const lanes = new Map();
+
     let count = 0;
-    cards.forEach((card) => {
-      if (!lanes.has(card.id)) lanes.set(card.id, lanes.size);
-      const lane = lanes.get(card.id);
+    const mark = (lane, x, cls, title, onClick) => {
+      const tick = el("button", "tick " + cls);
+      tick.type = "button";
+      tick.style.left = at(x);
+      tick.title = title;
+      tick.setAttribute("aria-label", title);
+      tick.setAttribute("role", "listitem");
+      tick.addEventListener("click", onClick);
+      lane.append(tick);
+      count += 1;
+    };
+    rows.forEach((card) => {
+      const name = el("button", "name" + (card.state === "paused" ? " paused" : ""), card.prompt);
+      name.type = "button";
+      name.title = card.prompt;
+      name.addEventListener("click", () => focusItem(card.id));
+      names.append(name);
+      const lane = el("div", "lane");
+      const what = short(card.prompt, 60);
+      (ran.get(card.id) || []).forEach(({ t, run }) => {
+        const said = OUTCOME[run.outcome] || run.outcome;
+        mark(lane, t, run.outcome, `${when(new Date(t).toISOString())} — ${said} — ${what}`
+          + (run.summary ? `\n${short(run.summary, 140)}` : ""),
+          () => { open.add(card.id); refresh().then(() => focusItem(card.id)).catch(showError); });
+      });
       (card.upcoming || []).forEach((iso) => {
         const t = new Date(iso).getTime();
-        if (t < start || t > start + span) return;
-        const tick = el("button", "tick");
-        tick.type = "button";
-        tick.style.left = ((t - start) / span * 100) + "%";
-        tick.style.top = (18 + (lane % 4) * 13) + "px";
-        const name = card.prompt.length > 60 ? card.prompt.slice(0, 59) + "…" : card.prompt;
-        tick.title = `${clock.format(new Date(t))} — ${name}`;
-        tick.setAttribute("aria-label", tick.title);
-        tick.setAttribute("role", "listitem");
-        tick.addEventListener("click", () => focusItem(card.id));
-        strip.append(tick);
-        count += 1;
+        if (t < now || t > now + half) return;
+        mark(lane, t, "ahead", `${when(iso)} — coming up — ${what}`, () => focusItem(card.id));
       });
+      field.append(lane);
     });
-    $("day-empty").classList.toggle("hidden", count > 0);
+    field.append(el("div", "now"));
+    strip.append(field);
+
+    const empty = $("day-empty");
+    const looked = days === 1 ? "the last day or the next" : "the last week or the next";
+    empty.textContent = cards.length ? `Nothing ran or runs in ${looked}.`
+                                     : "Nothing set up yet. Make a schedule below and it shows here.";
+    empty.classList.toggle("hidden", count > 0);
   }
 
   function focusItem(id) {
@@ -555,10 +682,13 @@ details.more[open] summary { margin-bottom: 12px; }
   // -- refresh -----------------------------------------------------------------
   async function refresh() {
     if (!token) { $("no-token").classList.remove("hidden"); return; }
-    const [status, list] = await Promise.all([api("GET", "status"), api("GET", "schedules")]);
+    const since = new Date(Date.now() - days * 86400000).toISOString();
+    const [status, list, past] = await Promise.all([
+      api("GET", "status"), api("GET", `schedules?ahead=${days}`),
+      api("GET", `runs?since=${encodeURIComponent(since)}&limit=500`)]);
     $("no-token").classList.add("hidden");
     drawState(status);
-    drawDay(list.schedules);
+    drawDay(list.schedules, past.runs);
     drawList(list.schedules);
   }
   refresh().catch(showError);

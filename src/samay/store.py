@@ -270,7 +270,9 @@ class Store:
         self._put("run", run)
 
     def runs(self, schedule_id: str | None = None, limit: int = 50,
-             owner: str | None = None) -> list[Run]:
+             owner: str | None = None, since: str | None = None) -> list[Run]:
+        """Newest first; ``since`` (an ISO time) keeps the runs that
+        started, or were due, at or after it."""
         query = "SELECT run.* FROM run"
         where, args = [], []
         if owner is not None:
@@ -280,6 +282,9 @@ class Store:
         if schedule_id is not None:
             where.append("run.schedule = ?")
             args.append(schedule_id)
+        if since is not None:
+            where.append("COALESCE(run.started_at, run.due_at) >= ?")
+            args.append(since)
         if where:
             query += " WHERE " + " AND ".join(where)
         query += " ORDER BY run.started_at DESC, run.due_at DESC LIMIT ?"

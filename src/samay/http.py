@@ -7,9 +7,10 @@ clock; it now also serves one page, and the small JSON API the page is
 drawn from (which any other program may use too):
 
     GET    /api/status
-    GET    /api/schedules                 every schedule, with its last run
+    GET    /api/schedules?ahead=DAYS      every schedule, with its last run
+                                          and its times in the next DAYS (1-14)
     GET    /api/schedules/ID
-    GET    /api/runs?schedule=ID&limit=N  newest first
+    GET    /api/runs?schedule=ID&limit=N&since=ISO  newest first
     POST   /api/preview      {when, tz}   the sentence, before anything is saved
     POST   /api/schedules    {prompt, when, ...}
     POST   /api/schedules/ID/pause | /resume | /run
@@ -55,7 +56,7 @@ from samay import schedules
 from samay.clock import Clock
 from samay.dvara import Dvara
 from samay.status import report
-from samay.store import Store
+from samay.store import Store, from_iso, iso
 
 #: The largest request body read. A schedule is a prompt and a few
 #: fields; anything bigger is not one.
@@ -124,11 +125,18 @@ class Api:
             schedule_id = query.get("schedule", [None])[0]
             if schedule_id:
                 schedule_id = schedules.find(self.store, schedule_id).id
-            runs = self.store.runs(schedule_id, limit=min(limit, 500))
+            since = query.get("since", [None])[0]
+            if since:
+                try:
+                    since = iso(from_iso(since))
+                except ValueError:
+                    raise ApiError(400, f"since: not a time: {since}") from None
+            runs = self.store.runs(schedule_id, limit=min(limit, 500), since=since)
             return 200, {"runs": [r.as_dict() for r in runs]}
         if parts == ["schedules"]:
             if method == "GET":
-                return 200, {"schedules": [schedules.card(s, self.store)
+                ahead = _int(query.get("ahead", ["1"])[0], "ahead")
+                return 200, {"schedules": [schedules.card(s, self.store, ahead)
                                            for s in self.store.schedules()]}
             if method == "POST":
                 return 201, schedules.card(self._create(body), self.store)

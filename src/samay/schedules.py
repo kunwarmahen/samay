@@ -284,20 +284,24 @@ def remove(store: Store, schedule_id: str, owner: str | None = None) -> Schedule
     return schedule
 
 
-def card(schedule: Schedule, store: Store | None = None) -> dict:
+MAX_AHEAD_DAYS = 14
+
+
+def card(schedule: Schedule, store: Store | None = None, ahead: int = 1) -> dict:
     """A schedule as JSON for a page, a program or an agent: its fields,
     the sentence, and (given the store) its last run."""
     out = schedule.as_dict()
     out["sentence"] = sentence(schedule)
-    # The next day's worth of times (at most 24), for a page that draws
-    # the day: what will run, and when.
+    # The next ``ahead`` days' worth of times (24 a day at most), for a
+    # page that draws the day or the week: what will run, and when.
     out["upcoming"] = []
     if schedule.state == "active":
+        ahead = max(1, min(int(ahead), MAX_AHEAD_DAYS))
         now = now_utc()
         parsed = when_mod.parse(schedule.when, schedule.tz)
-        horizon = now + timedelta(days=1)
+        horizon = now + timedelta(days=ahead)
         out["upcoming"] = [iso(t) for t in parsed.upcoming(
-            now, 24, anchor=from_iso(schedule.created_at)) if t <= horizon]
+            now, 24 * ahead, anchor=from_iso(schedule.created_at)) if t <= horizon]
     if store is not None:
         last = store.runs(schedule.id, limit=1)
         out["last_run"] = last[0].as_dict() if last else None

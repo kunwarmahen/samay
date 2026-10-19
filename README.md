@@ -150,15 +150,20 @@ own journal, the same as it would to your terminal.
 
 ### The page
 
-`samay serve` also serves a page, at the address it prints. It shows
-the next 24 hours as a strip with a dot for every run due, then every
-schedule: when it next runs, what it does, how its last run went, and
+`samay serve` also serves a page, at the address it prints. At the top
+is a timeline with *now* in the middle: the last 24 hours on the left,
+a dot for every run that happened, coloured by how it went (done,
+nothing new, needs you, failed), and the next 24 hours on the right, a
+ring for every run due. Each schedule gets its own row, named at the
+left. **Week** stretches both sides to seven days. Click a past dot and
+that schedule's history opens below; click a ring and the schedule is
+highlighted. Then every schedule: when it next runs, what it does, how its last run went, and
 why it's paused if it is. Each one has **Run now**, **Pause** or
 **Resume**, **History** (every run, with the full answer behind a
 click), and **Delete**. **New schedule** says your *when* back in words
 as you type it, before anything is saved.
 
-![Samay's page: the next 24 hours as a strip of dots, then four schedules — two waiting for 08:00 tomorrow, one paused because x.com needs a sign-in, one paused by hand](docs/page.png)
+![Samay's page: a timeline with now in the middle — yesterday's mail checks as coloured dots on the left, the next day's runs as gold rings on the right, a row per schedule — then three schedules with their next times and last runs](docs/page.png)
 
 It listens on localhost only (`--host` to change that, `--port` for
 another port, `--port 0` for no page), and every request behind it
@@ -173,12 +178,12 @@ The page is drawn from a small JSON API, which any program may use:
 
 ```
 GET    /api/status                      is the clock running; how many schedules
-GET    /api/schedules                   every schedule, its last run, the next day's times
+GET    /api/schedules?ahead=DAYS        every schedule, its last run, its times in the next DAYS (1-14, default 1)
 POST   /api/preview      {when, tz}     the sentence, before anything is saved
 POST   /api/schedules    {prompt, when, notify, allow_tools, runner, agent, as, time_limit}
 POST   /api/schedules/ID/pause | /resume | /run      (run answers 202 at once)
 DELETE /api/schedules/ID
-GET    /api/runs?schedule=ID&limit=N
+GET    /api/runs?schedule=ID&limit=N&since=ISO   newest first; since keeps runs at or after a time
 ```
 
 ### Your agent can offer it
