@@ -163,6 +163,11 @@ class DirectRunner:
             env["YANTRA_PHONE_RUN"] = "1"
         else:
             env.pop("YANTRA_PHONE_RUN", None)
+        # the phone Dvara checked free, and no other (one of several named)
+        if schedule.phone and whom and schedule.phone_name:
+            env["YANTRA_PHONE"] = schedule.phone_name
+        else:
+            env.pop("YANTRA_PHONE", None)
         return env
 
     def time_limit(self, schedule: Schedule) -> int:

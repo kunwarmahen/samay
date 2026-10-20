@@ -152,6 +152,10 @@ $ samay add "x" --when '{"at": "08:00"}' --phone "My Phone"
 error: 'My Phone' can't name a phone: lower case letters, digits and dashes, as Sparsh names it (nexus, asha-iphone)
 ```
 
+On the direct road (a schedule made on Yantra's page) the run is Yantra
+started here, and it gets `YANTRA_PHONE=nexus` beside `YANTRA_PHONE_RUN`,
+so it is served only the phone Dvara checked free (Yantra's note 134).
+
 Whether the name is one of the person's phones isn't Samay's to know.
 Dvara checks that when the run comes.
 

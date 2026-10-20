@@ -163,6 +163,8 @@ class TestTheDirectRoadMayWorkThePhone:
         assert runner.run(schedule(phone=True, prompt="read the battery row"), "p").ok
         assert dvara.asked == [("owner", 1200, "read the battery row")]
         assert runner.env(schedule(phone=True))["YANTRA_PHONE_RUN"] == "1"
+        assert "YANTRA_PHONE" not in runner.env(schedule(phone=True))
+        assert runner.env(schedule(phone=True, phone_name="nexus"))["YANTRA_PHONE"] == "nexus"
         assert "YANTRA_PHONE_RUN" not in runner.env(schedule())
 
     def test_a_phone_dvara_says_isnt_free_is_skipped_and_yantra_never_started(
