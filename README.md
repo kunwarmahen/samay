@@ -402,6 +402,10 @@ the phone (`phone: true`, or steps on it), and its card says what it may
 do there. A job done with other tools (switching a light through Home
 Assistant, reading mail) is not one, so it isn't held up, or skipped,
 by a phone that isn't there ([notes/06](notes/06-a-schedule-on-the-phone.md)).
+A person with several phones names one: `--phone nexus` (the agent's
+`phone_name`). Dvara checks that phone free and gives the run only it;
+for such a person, a schedule naming none is refused rather than run on
+whichever phone answered. `samay show` says `works your phone (nexus)`.
 A schedule made at this computer (the direct road) may work the phone
 too, when the chat it was made in had the phone and this Samay knows a
 Dvara to ask through (`SAMAY_DVARA_URL`, `SAMAY_DVARA_ACTOR`): before it

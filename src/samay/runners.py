@@ -182,7 +182,8 @@ class DirectRunner:
         from samay.dvara import DvaraError
 
         try:
-            why = self.ask.phone_ready(whom, schedule.wait * 60, schedule.prompt)
+            why = self.ask.phone_ready(whom, schedule.wait * 60, schedule.prompt,
+                                       schedule.phone_name)
         except (DvaraError, TimeoutError) as exc:
             return RunResult(ok=True, stop_reason="skipped", skipped=True,
                              detail=f"skipped: the phone couldn't be checked ({exc})")

@@ -331,6 +331,44 @@ class TestThePhone:
                             phone=True)
         assert failed and "no phone" in said
 
+    def test_a_named_phone_is_kept_and_sent_to_the_door_by_name(self, tmp_path, dvara):
+        # A person with several phones: the door checks THAT one free and
+        # gives the run only it; without the name it refuses, not guesses.
+        made = schedules.create(Store(tmp_path / "s.sqlite3"), prompt="p",
+                                when="every 1h", tz="UTC", phone="nexus")
+        again = Store(tmp_path / "s.sqlite3").get(made.id)
+        assert again.phone and again.phone_name == "nexus"
+        DvaraRunner(Dvara(dvara.url, TOKEN)).run(schedule(phone=True, phone_name="nexus"), "p")
+        assert dvara.seen[-1][2]["phone"] == "nexus"
+        with pytest.raises(schedules.ScheduleError, match="can't name a phone"):
+            schedules.create(Store(tmp_path / "t.sqlite3"), prompt="p",
+                             when="every 1h", tz="UTC", phone="My Phone")
+
+    def test_the_agent_names_the_phone_in_a_chat_with_several(self, tmp_path, dvara):
+        from samay.mcp import TOOLS, Tools
+        from tests.test_mcp import call
+
+        made_with = next(t for t in TOOLS if t["name"] == "create_schedule")
+        assert "phone_name" in made_with["inputSchema"]["properties"]
+        store = Store(tmp_path / "s.sqlite3")
+        tools = Tools(store, tmp_path, person="mahen", agent="reader",
+                      dvara=Dvara(dvara.url, TOKEN), phone=True)
+        failed, said = call(tools, "create_schedule", prompt="read my texts",
+                            when="every 1h", phone_name="pixel")
+        assert not failed, said
+        last = store.schedules()[-1]
+        assert last.phone and last.phone_name == "pixel"
+
+    def test_the_direct_road_asks_the_door_about_the_named_phone(self, tmp_path):
+        from tests.test_allowing import StubDvara
+
+        stub = StubDvara(why="skipped: the phone stayed locked")
+        from samay.runners import DirectRunner
+
+        runner = DirectRunner(tmp_path, ask=stub)
+        result = runner.ready(schedule(phone=True, phone_name="nexus"))
+        assert result is not None and result.skipped and stub.phones == ["nexus"]
+
     def test_an_older_file_gains_the_new_columns_and_keeps_its_schedules(self, tmp_path):
         import sqlite3
 
@@ -338,11 +376,11 @@ class TestThePhone:
         old = Store(path)
         made = schedules.create(old, prompt="p", when="every 1h", tz="UTC")
         with sqlite3.connect(path) as db:  # as a file made before them
-            for column in ("phone", "phone_steps", "wait"):
+            for column in ("phone", "phone_steps", "wait", "phone_name"):
                 db.execute(f'ALTER TABLE schedule DROP COLUMN "{column}"')
         again = Store(path).get(made.id)
         assert again.prompt == "p" and again.phone is False
-        assert again.phone_steps == [] and again.wait == 30
+        assert again.phone_steps == [] and again.wait == 30 and again.phone_name == ""
 
 
 class TestSettings:

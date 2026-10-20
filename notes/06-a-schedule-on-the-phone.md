@@ -125,6 +125,36 @@ Dvara, worked the iPhone and answered.
 A schedule that grants Sparsh's tools without being a phone schedule
 (made in a chat with no phone to give) is refused when it's made.
 
+## Which phone, when there are several
+
+A house can name several phones, each one person's (Sparsh's note 18,
+Dvara's note 54). A schedule for someone with only one phone needs no
+more than `phone: true`. For someone with two, "the phone" is a guess,
+and a wrong guess opens WhatsApp on the Nexus for a job set up on the
+iPhone. So a schedule can name its phone: `--phone nexus` here,
+`phone_name` on the agent's `create_schedule`, `phone_name` on the
+page's form. It's kept in a `phone_name` column (an older file gains
+it, empty), and sent to Dvara as `phone: "nexus"` with each run and with
+the direct road's `/phone/ready`. Dvara checks that phone, wakes it or
+waits on it, and starts the run with that phone alone. For a person with
+several phones, Dvara refuses a schedule that names none, and the
+refusal is a skip in the logbook with its sentence.
+
+A name is what Sparsh takes (lower case, digits, dashes), checked when
+the schedule is made:
+
+```
+$ samay add "read the newest text" --when '{"at": "08:00"}' --phone pixel
+added ddfca3ca: every day at 08:00 -- next: Tue 20 Oct 08:00, ...
+$ samay show ddfca3ca
+          works your phone (pixel)
+$ samay add "x" --when '{"at": "08:00"}' --phone "My Phone"
+error: 'My Phone' can't name a phone: lower case letters, digits and dashes, as Sparsh names it (nexus, asha-iphone)
+```
+
+Whether the name is one of the person's phones isn't Samay's to know.
+Dvara checks that when the run comes.
+
 ## What the tests hold
 
 `tests/test_dvara.py`: a phone run carries its steps and its wait, and

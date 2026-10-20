@@ -88,6 +88,9 @@ class Schedule:
     #: It works the person's phone (made in a turn that had it): Dvara
     #: gives such a run the phone, after checking it is free.
     phone: bool = False
+    #: Which of the person's phones, by its name in Sparsh ("nexus"), when
+    #: they have several; "" for their only one.
+    phone_name: str = ""
     #: Held taps on the phone this may do without asking, as the person
     #: accepted them: "send in Messages when the screen shows 555-0123"
     #: (Sparsh checks each one). The Dvara road only.
@@ -131,7 +134,8 @@ _LIST_COLUMNS = {"when", "allow_tools", "needs", "refused", "phone_steps"}
 #: earlier schedule had in effect.
 _ADDED = (("schedule", "phone", "INTEGER NOT NULL DEFAULT 0"),
           ("schedule", "phone_steps", "TEXT NOT NULL DEFAULT '[]'"),
-          ("schedule", "wait", "INTEGER NOT NULL DEFAULT 30"))
+          ("schedule", "wait", "INTEGER NOT NULL DEFAULT 30"),
+          ("schedule", "phone_name", "TEXT NOT NULL DEFAULT ''"))
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS schedule (
@@ -154,7 +158,8 @@ CREATE TABLE IF NOT EXISTS schedule (
     failures INTEGER NOT NULL,
     phone INTEGER NOT NULL DEFAULT 0,
     phone_steps TEXT NOT NULL DEFAULT '[]',
-    wait INTEGER NOT NULL DEFAULT 30
+    wait INTEGER NOT NULL DEFAULT 30,
+    phone_name TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS run (
     id TEXT PRIMARY KEY,

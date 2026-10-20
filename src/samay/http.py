@@ -180,7 +180,8 @@ class Api:
                             or schedules.DEFAULT_TIME_LIMIT, "time_limit"),
             browser_profile=str(body.get("browser_profile") or ""),
             created_via="page", dvara=self.dvara if runner == "dvara" else None,
-            phone=bool(body.get("phone")) or bool(body.get("phone_steps")),
+            phone=(str(body.get("phone_name") or "").strip()
+                   or bool(body.get("phone")) or bool(body.get("phone_steps"))),
             phone_steps=_sentences(body.get("phone_steps")),
             wait=_int(body.get("wait") or schedules.DEFAULT_WAIT, "wait"))
 

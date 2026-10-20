@@ -110,12 +110,15 @@ class Dvara:
     def notify(self, actor: str, text: str) -> dict:
         return self.call("POST", "/notify", {"actor": actor, "text": text})
 
-    def phone_ready(self, actor: str, wait: float, about: str) -> str | None:
+    def phone_ready(self, actor: str, wait: float, about: str,
+                    phone: str = "") -> str | None:
         """Dvara's check before a run elsewhere works the phone: None to
         go, else why it's skipped. It waits as Dvara does (a phone in hand
-        up to PHONE_IN_USE, a locked one ``wait``), so the call does too."""
+        up to PHONE_IN_USE, a locked one ``wait``), so the call does too.
+        ``phone``: which of the person's phones, by name."""
         said = self.call("POST", "/phone/ready",
-                         {"actor": actor, "wait": wait, "about": about},
+                         {"actor": actor, "wait": wait, "about": about,
+                          "phone": phone or True},
                          timeout=PHONE_IN_USE + wait + QUICK)
         return None if said.get("go") else str(said.get("said") or "skipped")
 
@@ -141,7 +144,8 @@ class DvaraRunner:
                 "wait": schedule.wait * 60}
         limit = schedule.time_limit
         if schedule.phone:
-            body.update(phone=True, phone_steps=list(schedule.phone_steps))
+            body.update(phone=schedule.phone_name or True,
+                        phone_steps=list(schedule.phone_steps))
             # THE WAITING IS NOT THE WORK. A phone run may wait for a phone
             # in someone's hand (up to PHONE_IN_USE), for its person to
             # unlock it (`wait`), and for its questions (`wait`, in all):

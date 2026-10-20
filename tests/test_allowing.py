@@ -147,8 +147,9 @@ class StubDvara(Dvara):
         super().__init__("http://dvara:8765", "tok", actor="owner")
         self.why, self.asked = why, []
 
-    def phone_ready(self, actor, wait, about):
+    def phone_ready(self, actor, wait, about, phone=""):
         self.asked.append((actor, wait, about))
+        self.phones = [*getattr(self, "phones", []), phone]
         return self.why
 
 

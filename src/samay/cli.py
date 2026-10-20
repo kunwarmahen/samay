@@ -98,9 +98,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--time-limit", type=int,
                    default=schedules.DEFAULT_TIME_LIMIT, metavar="SECONDS",
                    dest="time_limit")
-    p.add_argument("--phone", action="store_true",
+    p.add_argument("--phone", nargs="?", const=True, default=False, metavar="NAME",
                    help="it works the person's phone (the Dvara road): Dvara "
-                        "checks the phone is free, then gives the run its tools")
+                        "checks the phone is free, then gives the run its tools; "
+                        "NAME, which of their phones (nexus), when they have several")
     p.add_argument("--phone-step", action="append", default=[], metavar="SENTENCE",
                    dest="phone_steps",
                    help="a held step on the phone it may do without asking "
@@ -458,7 +459,8 @@ def _print_schedule(schedule: Schedule, store: Store, full: bool = False) -> Non
         if schedule.allow_tools:
             print(f"          allowed: {', '.join(schedule.allow_tools)}")
         if schedule.phone:
-            print("          works your phone")
+            print("          works your phone"
+                  + (f" ({schedule.phone_name})" if schedule.phone_name else ""))
         for step in schedule.phone_steps:
             print(f"          on the phone, unasked: {step}")
         if schedule.runner == "dvara":

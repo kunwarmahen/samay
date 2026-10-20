@@ -108,16 +108,25 @@ def preview(form: dict | str, tz: str | None = None,
             "next": [iso(t) for t in times]}
 
 
+#: A phone's name, as Sparsh takes it (its phones.py).
+PHONE_NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,31}")
+
 def create(store: Store, *, prompt: str, when: dict | str,
            owner: str = LOCAL_OWNER, tz: str | None = None,
            runner: str = "direct", agent: str = "",
            notify: str = "when_new", allow_tools: list[str] | None = None,
            time_limit: int = DEFAULT_TIME_LIMIT, browser_profile: str = "",
            created_via: str = "cli", now: datetime | None = None,
-           dvara: Dvara | None = None, phone: bool = False,
+           dvara: Dvara | None = None, phone: bool | str = False,
            phone_steps: list[str] | None = None,
            wait: int = DEFAULT_WAIT) -> Schedule:
+    """``phone``: true, or the name of one of the person's phones
+    ("nexus") -- which Dvara checks is free and gives the run alone."""
     now = now or now_utc()
+    phone_name = phone.strip() if isinstance(phone, str) else ""
+    if isinstance(phone, str) and not PHONE_NAME.fullmatch(phone_name):
+        raise ScheduleError(f"{phone!r} can't name a phone: lower case letters, digits "
+                            "and dashes, as Sparsh names it (nexus, asha-iphone)")
     prompt = (prompt or "").strip()
     if not prompt:
         raise ScheduleError("a schedule needs a prompt: what to do each time")
@@ -185,7 +194,7 @@ def create(store: Store, *, prompt: str, when: dict | str,
         allow_tools=grants,
         time_limit=int(time_limit), browser_profile=browser_profile,
         created_at=iso(now), created_via=created_via, next_at=said["next"][0],
-        phone=bool(phone), phone_steps=steps, wait=int(wait))
+        phone=bool(phone), phone_name=phone_name, phone_steps=steps, wait=int(wait))
     return store.add(schedule)
 
 

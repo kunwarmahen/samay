@@ -124,6 +124,9 @@ TOOLS: list[dict] = [
                    "other tools -- Home Assistant, the web, mail -- is false, even "
                    "in a chat that has the phone: a phone schedule waits for the "
                    "phone and is skipped when it isn't there."},
+         "phone_name": {"type": "string",
+                        "description": "Which phone, by its name, when the person has "
+                        "more than one (\"nexus\"); leave out for their only one."},
          "phone_steps": {"type": "array", "items": {"type": "string"},
                          "description": "Held steps on the person's phone this may do "
                          "without asking, each as \"<word> in <app> when the screen "
@@ -243,7 +246,9 @@ class Tools:
         # works the phone whether or not the model also said phone: true.
         grants_phone = any(str(g).startswith("mcp__sparsh__")
                            for g in args.get("allow_tools") or [])
-        works_phone = bool(args.get("phone")) or bool(steps) or (self.phone and grants_phone)
+        name = str(args.get("phone_name") or "").strip()
+        works_phone = (bool(args.get("phone")) or bool(steps) or bool(name)
+                       or (self.phone and grants_phone))
         if works_phone and not self.phone:
             raise ToolFailed("this chat has no phone to give a schedule; leave out "
                              "phone and phone_steps")
@@ -254,7 +259,7 @@ class Tools:
             notify=str(args.get("notify") or "when_new"),
             allow_tools=[str(g) for g in allow], created_via="agent",
             dvara=self.dvara if self.runner == "dvara" else None,
-            phone=works_phone, phone_steps=[str(s) for s in steps],
+            phone=name or works_phone, phone_steps=[str(s) for s in steps],
             wait=_minutes(args.get("wait")))
         said = f"Saved {made.id}: {schedules.sentence(made)}."
         if serving(self.state) is None:
