@@ -61,6 +61,10 @@ clock running?" stays right after a crash and from another container.
   allowance, answered on their Telegram (see *Two roads* below). With
   `dvara --samay`, a person's agent can offer a schedule in the chat
   (dvara's [tutorial §15](https://github.com/kunwarmahen/dvara/blob/main/TUTORIAL.md)).
+* **[Prahari](https://github.com/kunwarmahen/prahari)** is the other half of "later": a schedule does
+  something at a time, a watch waits for something to happen ("tell me
+  when the price drops under $50") and looks with no model, waking the
+  agent only when it does. An agent offered both is told which fits.
 * **[Setu](https://github.com/kunwarmahen/setu)** is reached through Yantra: a direct-road run is an
   ordinary Yantra run, so it can read the accounts Setu keeps without
   asking. On the Dvara road a run reaches the person's own accounts,
