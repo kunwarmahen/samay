@@ -179,6 +179,10 @@ def create(store: Store, *, prompt: str, when: dict | str,
         raise ScheduleError("a tests schedule asks no agent anything: it replays "
                             "the kept tests, each against its own agent, so it "
                             "takes no agent, tools, phone or browser")
+    if runner == "doctor" and (agent or grants or phone or steps or browser_profile):
+        raise ScheduleError("a doctor schedule asks no agent anything: it asks "
+                            "Sarathi's doctor what's wrong, so it takes no agent, "
+                            "tools, phone or browser")
     if runner == "direct" and agent:
         package = Path(agent).expanduser().resolve()
         if not (package / "agent.toml").is_file():

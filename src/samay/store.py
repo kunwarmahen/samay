@@ -44,7 +44,7 @@ OUTCOMES = ("ok", "quiet", "failed", "needs_person", "timed_out", "busy",
 FAILURES = ("failed", "timed_out", "interrupted")
 
 NOTIFY = ("always", "when_new", "never")
-RUNNERS = ("direct", "dvara", "tests")
+RUNNERS = ("direct", "dvara", "tests", "doctor")
 STATES = ("active", "paused", "done")
 
 #: A full answer is kept, but not without limit: a run that pasted a

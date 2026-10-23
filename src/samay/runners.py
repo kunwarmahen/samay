@@ -30,6 +30,16 @@ This writes it in the logbook and answers NOTHING NEW when nothing broke
 and every suite ran, so a ``when_new`` schedule says something only on
 the morning there is something to say.
 
+THE DOCTOR ROAD is not a turn either. Sarathi's doctor (``sarathi
+doctor``) says what's wrong in the house, each line with its fix; this
+asks it over HTTP -- ``$SAMAY_DOCTOR_URL`` with ``$SAMAY_DOCTOR_TOKEN``,
+which ``sarathi up`` sets, a key that opens that one check and nothing
+else -- because the doctor has to look from the computer itself
+(systemd, Podman, the firewall), and Samay may be in a container. The
+doctor says what is NEW since the last time it was asked this way, and
+an answer with nothing new red or amber is NOTHING NEW: a phone left
+unplugged all week is said once, not every morning.
+
 WHERE YANTRA RUNS FROM. Yantra reads ``.env`` from the directory it
 starts in, which is where a person keeps their model and keys. So the
 process starts in ``$SAMAY_YANTRA_HOME`` when it is set (typically the
@@ -57,6 +67,10 @@ from samay.store import Schedule
 YANTRA_FORMAT = "yantra.run.v1"
 #: The only shape of ``yantra --tests --json`` this reads.
 TESTS_FORMAT = "yantra.tests.v1"
+#: The only shape of Sarathi's doctor this reads.
+DOCTOR_FORMAT = "sarathi.doctor.v1"
+#: How long the doctor may take to look.
+DOCTOR_TIMEOUT = 120
 
 #: How long a killed run gets to exit after SIGTERM before SIGKILL.
 KILL_GRACE = 5.0
@@ -329,6 +343,65 @@ class KeptTestsRunner:
                              detail=f"stopped after {schedule.time_limit}s, the "
                                     "time limit for this schedule")
         return read_tests(out, err)
+
+
+class DoctorRunner:
+    """Ask Sarathi's doctor what's wrong, and say only what's new."""
+
+    def __init__(self, *, url: str | None = None, token: str | None = None,
+                 fetch=None) -> None:
+        self.url = url if url is not None else os.environ.get("SAMAY_DOCTOR_URL", "").strip()
+        self.token = (token if token is not None
+                      else os.environ.get("SAMAY_DOCTOR_TOKEN", "").strip())
+        self.fetch = fetch or _get_json
+
+    def run(self, schedule: Schedule, prompt: str) -> RunResult:
+        if not self.url or not self.token:
+            return RunResult(ok=False, stop_reason="error", detail=(
+                "no doctor to ask: SAMAY_DOCTOR_URL and SAMAY_DOCTOR_TOKEN are "
+                "unset (`sarathi up` sets them)"))
+        try:
+            data = self.fetch(self.url, self.token,
+                              min(schedule.time_limit, DOCTOR_TIMEOUT))
+        except Exception as exc:          # unreachable, refused, not JSON
+            return RunResult(ok=False, stop_reason="error",
+                             detail=f"the doctor didn't answer: {exc}")
+        if not isinstance(data, dict) or data.get("format") != DOCTOR_FORMAT:
+            got = data.get("format") if isinstance(data, dict) else None
+            return RunResult(ok=False, stop_reason="error", detail=(
+                f"the doctor answered in a format this Samay does not know "
+                f"({got!r}; want {DOCTOR_FORMAT})"))
+        return RunResult(ok=True, text=doctor_said(data), stop_reason="doctor")
+
+
+def _get_json(url: str, token: str, timeout: float) -> dict:
+    import urllib.request
+
+    request = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
+    with urllib.request.urlopen(request, timeout=timeout) as answer:
+        return json.loads(answer.read().decode("utf-8"))
+
+
+def doctor_said(data: dict) -> str:
+    """The doctor's answer in words: what's new first, each with its fix;
+    NOTHING NEW when nothing red or amber is."""
+    news = data.get("news") or {}
+    new = [x for x in news.get("new") or [] if x.get("level") in ("red", "amber")]
+    gone = news.get("gone") or []
+    head = (f"{data.get('red', 0)} to fix, {data.get('amber', 0)} worth a look, "
+            f"{data.get('green', 0)} fine")
+    lines = []
+    for line in new:
+        mark = "needs fixing" if line["level"] == "red" else "worth a look"
+        lines.append(f"· {mark} -- {line.get('about')}: {line.get('said')}")
+        if line.get("fix"):
+            lines.append(f"  fix: {line['fix']}")
+    if gone:
+        lines.append("Fixed since last time: " + "; ".join(
+            f"{x.get('about')}: {x.get('said')}" for x in gone))
+    if not new:
+        return "\n".join(["NOTHING NEW", head + ".", *lines])
+    return "\n".join([f"{head}. New since last time:", *lines])
 
 
 def read_tests(out: str, err: str) -> RunResult:

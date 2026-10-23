@@ -374,7 +374,8 @@ tools run without being named in `--allow-tools`.
 
 Every schedule that asks the agent something runs one of two ways. Both
 run the same Yantra; they differ in *who* the run is, and where its
-answer can go. (A third road, `tests`, asks nothing: see below.)
+answer can go. (Two more roads, `tests` and `doctor`, ask nothing: see
+below.)
 
 | | `--runner direct` (default) | `--runner dvara` |
 |---|---|---|
@@ -429,6 +430,27 @@ tests*. Sarathi's home page has a button that makes this one schedule
 for you. See
 [08 — a night of your own tests](notes/08-a-night-of-kept-tests.md).
 
+**The house, every morning** (`--runner doctor`). Sarathi's doctor
+(`sarathi doctor`) says what's wrong in the house, each line with its
+fix: a stopped piece, a phone unplugged, an image older than the code,
+a Google sign-in ending in two days, the iPhone's signature. This road
+asks it over HTTP, at `SAMAY_DOCTOR_URL` with `SAMAY_DOCTOR_TOKEN`
+(`sarathi up` sets both; the key opens that one answer and nothing
+else), because the doctor looks from the computer itself and Samay may
+be in a container:
+
+```bash
+samay add "the house, checked by Sarathi's doctor" --when "at 07:30" --runner doctor
+```
+
+The doctor says what's new since it was last asked this way. A morning
+with nothing newly red or amber is `NOTHING NEW`, so a phone left
+unplugged all week is told once. Something new is sent with its fix,
+and what was fixed since is mentioned. A doctor that can't be reached is
+a failed run that says why. On Samay's page it's Run: *Sarathi's doctor*,
+and Sarathi's Settings → Check has **Check every morning**. See
+[09 — the house, every morning](notes/09-the-house-every-morning.md).
+
 `--wait MINUTES` (default 30) is how long, in all, a run's questions may
 wait for the person. One that outwaits it **lapses**: refused, and the
 run's record says what it was (`samay runs`: `asked, not answered: …`).
@@ -475,6 +497,7 @@ it's made: it would wake up without them.
 | `SAMAY_YANTRA` | the command that starts Yantra; may be several words (`uv run --project ~/yantra yantra`) |
 | `SAMAY_YANTRA_HOME` | the folder Yantra starts in, for its `.env` |
 | `SAMAY_TESTS_PROVIDER`, `SAMAY_TESTS_MODEL` | what `--runner tests` replays the kept tests on (`ollama`, `qwen3.8:latest`); unset, Yantra's own default. Give both: a model alone is guessed a provider |
+| `SAMAY_DOCTOR_URL`, `SAMAY_DOCTOR_TOKEN` | where `--runner doctor` asks Sarathi's doctor (`…/api/doctor?news=1`), and the key that opens it; `sarathi up` sets both |
 | `SAMAY_TZ` | the default time zone for new schedules (else `$TZ` when it names a zone, else this machine's) |
 | `SAMAY_DVARA_URL` | where Dvara's HTTP surface is; set, answers are sent and `--runner dvara` works |
 | `SAMAY_DVARA_TOKEN` | Dvara's `DVARA_TOKEN` |
@@ -505,7 +528,9 @@ src/samay/
 │                 with a Dvara it tells that Yantra where to ask its person
 │                 (YANTRA_ASK_URL) and adds the wait to the limit (notes/07);
 │                 the tests road: yantra --tests --json, NOTHING NEW unless
-│                 something broke or could not run (notes/08)
+│                 something broke or could not run (notes/08); the doctor
+│                 road: Sarathi's doctor over HTTP, NOTHING NEW unless
+│                 something newly red or amber (notes/09)
 ├── dvara.py      the Dvara road: POST /message as the person, unattended, with
 │                 what they allowed ahead of time, its wait, and the phone
 │                 and its steps when it works one (notes/06), named as
@@ -526,8 +551,8 @@ src/samay/
 
 ## Status
 
-The clock, the records, the rules above, all three roads, the page and the
-agent's tools all work, and are covered by 211 tests. The API is not
+The clock, the records, the rules above, all four roads, the page and the
+agent's tools all work, and are covered by 221 tests. The API is not
 stable.
 
 Not here yet:
