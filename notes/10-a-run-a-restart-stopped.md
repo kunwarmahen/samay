@@ -26,7 +26,9 @@ runner that knows nothing of jobs still works.
   The file sits beside the work folders, never in one, so the agent's own
   tools can't read it. Yantra saves the run there after every step and
   holds `FILE.lock` while it runs. A run that comes back, however it
-  ended, has its file deleted. Only a run Samay never saw end leaves one.
+  ended, keeps its file, now finished and so never carried on, for its
+  steps (note 11), and lets go of its lock. Only a run Samay never saw
+  end leaves one that is still going.
 * **The Dvara road** names the thread after the run,
   `samay-<schedule>-<run>`, where it used to be named after the clock.
   Dvara saves every step under that thread.

@@ -11,6 +11,8 @@ drawn from (which any other program may use too):
                                           and its times in the next DAYS (1-14)
     GET    /api/schedules/ID
     GET    /api/runs?schedule=ID&limit=N&since=ISO  newest first
+    GET    /api/runs/ID/steps                  what that run did, step by step
+                                          (yantra.steps.v1; its road says)
     POST   /api/preview      {when, tz}   the sentence, before anything is saved
     POST   /api/schedules    {prompt, when, ...}
     POST   /api/schedules/ID/pause | /resume | /run
@@ -105,6 +107,29 @@ class Api:
         self.state = state
         self.dvara = dvara
 
+    def run_steps(self, run_id: str) -> dict:
+        """A run, step by step: from Dvara for a run it ran (its own run
+        id), else from the direct road's job file."""
+        run = self.store.get_run(run_id)
+        schedule = self.store.get(run.schedule) if run is not None else None
+        if run is None or schedule is None:
+            raise ApiError(404, "no such run")
+        if run.dvara_run_id:
+            if self.dvara is None:
+                raise ApiError(404, "Dvara ran it, and this Samay has no Dvara to ask")
+            from samay.dvara import DvaraError
+            try:
+                return self.dvara.call("GET", f"/runs/{run.dvara_run_id}/steps")
+            except DvaraError as exc:
+                raise ApiError(404, str(exc)) from None
+        runner = self.clock.runners.get(schedule.runner)
+        if not hasattr(runner, "steps"):
+            raise ApiError(404, "this kind of run has no steps")
+        try:
+            return runner.steps(schedule, run.id)
+        except LookupError as exc:
+            raise ApiError(404, str(exc)) from None
+
     def handle(self, method: str, path: str, query: dict, body: dict
                ) -> tuple[int, dict]:
         parts = [p for p in path.split("/") if p][1:]      # after "api"
@@ -133,6 +158,9 @@ class Api:
                     raise ApiError(400, f"since: not a time: {since}") from None
             runs = self.store.runs(schedule_id, limit=min(limit, 500), since=since)
             return 200, {"runs": [r.as_dict() for r in runs]}
+        if len(parts) == 3 and parts[0] == "runs" and parts[2] == "steps" \
+                and method == "GET":
+            return 200, self.run_steps(parts[1])
         if parts == ["schedules"]:
             if method == "GET":
                 ahead = _int(query.get("ahead", ["1"])[0], "ahead")

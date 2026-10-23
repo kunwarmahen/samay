@@ -207,6 +207,7 @@ POST   /api/schedules    {prompt, when, notify, allow_tools, runner, agent, as, 
 POST   /api/schedules/ID/pause | /resume | /run      (run answers 202 at once)
 DELETE /api/schedules/ID
 GET    /api/runs?schedule=ID&limit=N&since=ISO   newest first; since keeps runs at or after a time
+GET    /api/runs/ID/steps                       that run, step by step (yantra.steps.v1)
 ```
 
 ### Your agent can offer it
@@ -328,6 +329,11 @@ If a schedule is paused (see below), you're always told, whatever
 | It ran past its time limit (default 10 minutes) | `timed_out` | stops it, browser and all |
 | Samay stopped while it ran, and came back soon (within the schedule's grace) | the run's own outcome, its detail *carried on after a restart* | **carries it on from its last step**: Yantra saved every step (`--job`), or Dvara did (`carry_on`); nothing done is done again, and the agent looks again before it acts ([notes/10](notes/10-a-run-a-restart-stopped.md)) |
 | Samay stopped while it ran, longer ago, or with nothing saved | `interrupted` | doesn't run it again |
+
+Each run's details on the page have a **Steps** button: the run's tools
+in order, what each was given and what came back, when, how long, and
+who said yes. A Dvara run's steps come from Dvara; a direct run's from its
+job file, kept 30 days ([notes/11](notes/11-a-run-step-by-step.md)).
 
 Tools a run reached for and wasn't allowed are listed under the run
 (`not allowed: web_fetch, bash (samay allow ID TOOL)`), and the run is
@@ -535,7 +541,9 @@ src/samay/
 │                 something newly red or amber (notes/09); each run a Job
 │                 (JOB): its id names the run's --job checkpoint, and a
 │                 restart carries a stopped one on from its last step,
-│                 never beside a Yantra still holding it (notes/10)
+│                 never beside a Yantra still holding it (notes/10); the file
+│                 is kept 30 days after, and its steps read by `yantra
+│                 --steps FILE --json` (notes/11)
 ├── dvara.py      the Dvara road: POST /message as the person, unattended, with
 │                 what they allowed ahead of time, its wait, and the phone
 │                 and its steps when it works one (notes/06), named as

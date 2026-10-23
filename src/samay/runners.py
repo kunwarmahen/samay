@@ -49,7 +49,8 @@ last step (Yantra's carry.py). On the Dvara road it names the thread,
 and a carry-on asks Dvara with ``carry_on: true``. ``can_carry`` says
 whether there is anything saved to go on from: with nothing, the run
 stays ``interrupted`` and is not started over (it may have spent money
-or done something).
+or done something). The job file is kept after the run, for its steps
+(``yantra --steps``, the page's Steps), and let go after ``KEEP_JOBS``.
 
 WHERE YANTRA RUNS FROM. Yantra reads ``.env`` from the directory it
 starts in, which is where a person keeps their model and keys. So the
@@ -130,6 +131,8 @@ JOB: ContextVar[Job | None] = ContextVar("samay_job", default=None)
 
 #: Where a direct run's checkpoint is, inside it: Yantra's one session.
 JOB_SESSION = "job"
+#: How long a direct run's job file is kept, for its steps.
+KEEP_JOBS = 30 * 24 * 3600
 
 
 def still_running(path: Path) -> bool:
@@ -308,15 +311,40 @@ class DirectRunner:
         job = JOB.get()
         if job is not None:
             self.job_file(schedule, job).parent.mkdir(parents=True, exist_ok=True)
+            self.prune_jobs()
         try:
             return self._run(schedule, argv)
         finally:
-            # A run that came back, however it ended, is over: only one
-            # Samay never saw end leaves its checkpoint, to be carried on.
+            # A run that came back is over: its file stays for its steps
+            # (finished, so never carried on), its lock goes.
             if job is not None:
-                done = self.job_file(schedule, job)
-                done.unlink(missing_ok=True)
-                Path(f"{done}.lock").unlink(missing_ok=True)
+                Path(f"{self.job_file(schedule, job)}.lock").unlink(missing_ok=True)
+
+    def prune_jobs(self, now: float | None = None) -> int:
+        """Job files older than ``KEEP_JOBS``, let go; how many."""
+        import time as clock
+        cutoff = (now or clock.time()) - KEEP_JOBS
+        gone = 0
+        for path in (self.work / ".jobs").glob("*.sqlite"):
+            if path.stat().st_mtime < cutoff:
+                path.unlink(missing_ok=True)
+                gone += 1
+        return gone
+
+    def steps(self, schedule: Schedule, run_id: str) -> dict:
+        """A run's steps, as Yantra reads them from its job file
+        (``yantra --steps FILE --json``, yantra.steps.v1). LookupError
+        when the file is gone."""
+        path = self.job_file(schedule, Job(run_id))
+        if not path.is_file():
+            raise LookupError("this run's steps are not kept (a run's are kept "
+                              f"{KEEP_JOBS // 86400} days, and only on the direct road "
+                              "since Samay began keeping them)")
+        done = subprocess.run([*(self.command or find_yantra()), "--steps", str(path),
+                               "--json"], capture_output=True, text=True, timeout=60)
+        if done.returncode != 0:
+            raise LookupError((done.stderr or "yantra could not read them").strip()[-300:])
+        return json.loads(done.stdout)
 
     def _run(self, schedule: Schedule, argv: list[str]) -> RunResult:
         cwd = self.home if self.home and self.home.is_dir() else self.work

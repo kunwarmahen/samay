@@ -170,20 +170,67 @@ class TestTheDirectRoad:
             assert not stopped_part_way(path)
         assert stopped_part_way(path)
 
-    def test_a_finished_run_leaves_no_job_file(self, tmp_path):
+    def test_a_finished_run_keeps_its_file_for_its_steps_and_drops_its_lock(self, tmp_path):
         script = tmp_path / "fake-yantra"
         script.write_text("#!/bin/sh\necho '{\"format\": \"yantra.run.v1\", "
                           "\"ok\": true, \"text\": \"hi\", \"stop_reason\": "
                           "\"end_turn\"}'\n")
         script.chmod(0o755)
         runner = DirectRunner(tmp_path / "work", command=[str(script)])
-        job_file(runner.job_file(schedule(runner="direct"), Job("r1")), unfinished=True)
+        kept = job_file(runner.job_file(schedule(runner="direct"), Job("r1")),
+                        unfinished=False)
+        Path(f"{kept}.lock").write_text("")
         token = JOB.set(Job("r1"))
         try:
             assert runner.run(schedule(runner="direct", phone=False), "p").ok
         finally:
             JOB.reset(token)
-        assert not runner.job_file(schedule(runner="direct"), Job("r1")).exists()
+        assert kept.exists() and not Path(f"{kept}.lock").exists()
+
+    def test_job_files_are_let_go_after_thirty_days(self, tmp_path):
+        import os
+        import time
+        runner = DirectRunner(tmp_path / "work", command=["yantra"])
+        old = job_file(tmp_path / "work" / ".jobs" / "abc-old.sqlite", unfinished=False)
+        new = job_file(tmp_path / "work" / ".jobs" / "abc-new.sqlite", unfinished=False)
+        month_ago = time.time() - 31 * 86400
+        os.utime(old, (month_ago, month_ago))
+
+        assert runner.prune_jobs() == 1
+        assert not old.exists() and new.exists()
+
+
+class TestSteps:
+    def test_a_direct_runs_steps_are_read_by_yantra_from_its_file(self, tmp_path):
+        script = tmp_path / "fake-yantra"
+        script.write_text('#!/bin/sh\n[ "$1" = "--steps" ] && echo \'{"format": '
+                          '"yantra.steps.v1", "steps": [{"n": 1, "tool": "read_file"}]}\'\n')
+        script.chmod(0o755)
+        runner = DirectRunner(tmp_path / "work", command=[str(script)])
+        job_file(runner.job_file(schedule(runner="direct"), Job("r1")), unfinished=False)
+
+        view = runner.steps(schedule(runner="direct"), "r1")
+
+        assert view["steps"][0]["tool"] == "read_file"
+        with pytest.raises(LookupError, match="not kept"):
+            runner.steps(schedule(runner="direct"), "gone")
+
+    def test_the_page_asks_dvara_for_a_run_it_ran(self, tmp_path, dvara):
+        from samay.http import Api
+        store = Store(tmp_path / "s.sqlite3")
+        made = schedules.create(store, prompt="p", when="every 1h", tz="UTC",
+                                notify="always", now=START)
+        run = store.start_run(made.id, START, at=START)
+        run.dvara_run_id, run.outcome = "d-77", "ok"
+        store.finish_run(run, at=START)
+        dvara.reply = {"format": "yantra.steps.v1", "steps": [], "run": "d-77"}
+        clock = Clock(store, {}, now=lambda: START)
+        try:
+            api = Api(store, clock, tmp_path, dvara=Dvara(dvara.url, TOKEN))
+            assert api.run_steps(run.id)["run"] == "d-77"
+        finally:
+            clock.close()
+        assert dvara.seen[-1][:2] == ("GET", "/runs/d-77/steps")
 
 
 @pytest.fixture

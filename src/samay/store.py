@@ -317,6 +317,11 @@ class Store:
                 (schedule_id,)).fetchone()
         return _load(Run, row) if row else None
 
+    def get_run(self, run_id: str) -> Run | None:
+        with self._db() as db:
+            row = db.execute("SELECT * FROM run WHERE id = ?", (run_id,)).fetchone()
+        return _load(Run, row) if row else None
+
     def running(self) -> list[Run]:
         """Runs a process left ``running``: going now, or a dead one's."""
         with self._db() as db:

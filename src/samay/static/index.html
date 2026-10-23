@@ -147,6 +147,9 @@ header { display: flex; align-items: flex-end; gap: 18px; flex-wrap: wrap; }
 .btn.link { border: 0; background: none; padding: 4px 6px; color: var(--ink-2); }
 .btn.link:hover { color: var(--ink); text-decoration: underline; }
 .btn.link.danger:hover { color: var(--bad); }
+.run .steps .step { border-top: 1px solid var(--line, #ddd); padding: 6px 0; }
+.run .steps pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow-y: auto; font-size: 12px; margin: 4px 0; }
+.run .steps img { max-width: 100%; margin-top: 4px; }
 .btn[disabled] { opacity: .5; cursor: default; }
 .note { padding: 10px 14px; border-radius: 8px; margin: 0 0 14px;
         background: var(--sunk); color: var(--ink-2); font-size: 14px; }
@@ -623,6 +626,38 @@ details.more[open] summary { margin-bottom: 12px; }
         if (run.dvara_run_id) meta.push("Dvara run " + run.dvara_run_id);
         if (run.detail && run.reply) meta.push(run.detail);
         if (meta.length) body.append(el("div", "meta", meta.join(". ") + "."));
+        // what it did, step by step (yantra.steps.v1)
+        const took = (n) => (n == null ? "" : n < 0.001 ? "<1ms" : n < 1 ? `${Math.round(n * 1000)}ms` : `${n.toFixed(1)}s`);
+        const stepsBtn = el("button", "btn link", "Steps");
+        stepsBtn.type = "button";
+        const stepsBox = el("div", "steps");
+        stepsBtn.addEventListener("click", async () => {
+          if (stepsBox.childElementCount) { stepsBox.replaceChildren(); return; }
+          try {
+            const v = await api("GET", `runs/${encodeURIComponent(run.id)}/steps`);
+            if (!v.steps.length) stepsBox.append(el("div", "meta", "No tools: it answered from what it knew."));
+            v.steps.forEach((s) => {
+              const bits = [s.at ? new Date(s.at).toLocaleTimeString() : "",
+                s.answered_by ? `asked ${s.answered_by}, ${took(s.waited)}` : "",
+                s.ran != null ? `ran ${took(s.ran)}` : "",
+                s.refused ? `refused (${s.refused})` : "",
+                s.error && !s.refused ? "failed" : ""].filter(Boolean).join(" · ");
+              const row = el("div", "step");
+              row.append(el("b", "", `${s.n}. ${s.tool}`), el("span", "meta", bits ? " " + bits : ""));
+              if (s.arguments) row.append(el("pre", "", JSON.stringify(s.arguments, null, 2)));
+              if (s.result) row.append(el("pre", "", s.result));
+              (s.pictures || []).forEach((p) => {
+                if (!/^[A-Za-z0-9+/=]+$/.test(p.data)) return;
+                const img = document.createElement("img");
+                img.alt = `what ${s.tool} saw`;
+                img.src = `data:${p.media_type};base64,${p.data}`;
+                row.append(img);
+              });
+              stepsBox.append(row);
+            });
+          } catch (e) { stepsBox.replaceChildren(el("div", "meta", "No steps: " + e.message)); }
+        });
+        body.append(stepsBtn, stepsBox);
         head.addEventListener("click", () => {
           const shut = body.classList.toggle("hidden");
           head.setAttribute("aria-expanded", String(!shut));
