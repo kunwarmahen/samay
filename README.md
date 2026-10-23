@@ -9,6 +9,25 @@ of schedules, wakes up when one is due, asks [Yantra](https://github.com/kunwarm
 to do the work, writes down what came back, and leaves you a record
 you can read, pause, or delete.
 
+### Samay or Prahari?
+
+[Prahari](https://github.com/kunwarmahen/prahari), a sibling, also
+repeats things, so here is the line between them. Ask *is this about a
+time, or about something happening?*
+
+| You say | It's | Use |
+|---|---|---|
+| "Every weekday at 8, see what's new on my X timeline" | something done **at a time** | **Samay**: at each time the agent does the whole job |
+| "Check my email every two hours and tell me if anything needs me" | a judgement, **at a time** | **Samay**: "needs me" takes the agent's reading every time |
+| "Tell me when ALAB drops under $50" | **waiting** for something to happen | **Prahari**: it peeks with no model and wakes the agent only when it happens |
+| "Tell me as soon as the bank writes" | **waiting** | **Prahari**, with a mailbox that says so the moment mail lands |
+
+The difference is what each repeat costs. A Samay run is a whole agent
+turn, a model and all, which is right for a summary or a judgement. A
+Prahari look is one tool call with no model, which is right for "has it
+happened yet?", asked a hundred times. You don't have to pick: ask your
+agent in plain words, and it is told the same line.
+
 ## The name
 
 **samay** — समय (Sanskrit *samaya*; said roughly *suh-my*).
