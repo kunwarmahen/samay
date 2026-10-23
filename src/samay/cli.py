@@ -13,6 +13,7 @@
     samay serve [--port 8780]                   the clock, and its page, until stopped
     samay mcp --for WHO [--agent A]             the tools an agent uses (MCP, stdio)
     samay status [--json]                       is the clock running, and where
+    samay keeps [--json]                        where the schedules are kept, for a backup
     samay unit [--install]                      keep the clock running (systemd)
 
 ``--when`` takes the short form (``every 30m between 09:00-18:00 on
@@ -45,7 +46,7 @@ from samay import __version__, mcp, schedules
 from samay.clock import Clock
 from samay.dvara import Dvara, DvaraError, DvaraNotifier, DvaraRunner
 from samay.http import DEFAULT_PORT, Api, SamayServer, serve_token
-from samay.runners import DirectRunner, DoctorRunner, KeptTestsRunner
+from samay.runners import BackupRunner, DirectRunner, DoctorRunner, KeptTestsRunner
 from samay.status import hold_clock, report, samay_command, serving
 from samay.store import NOTIFY, Run, Schedule, Store, from_iso
 
@@ -82,13 +83,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--agent", default="", metavar="DIR|NAME",
                    help="the agent package to run (default: plain Yantra); "
                         "on the Dvara road, an agent's name on its roster")
-    p.add_argument("--runner", choices=("direct", "dvara", "tests", "doctor"),
+    p.add_argument("--runner", choices=("direct", "dvara", "tests", "doctor", "backup"),
                    default="direct",
                    help="run it here (default), or through Dvara as a person "
                         "-- their allowance, their rules, their Telegram; "
                         "'tests' replays every conversation kept as a test "
                         "(yantra --tests) instead of asking anything; 'doctor' "
-                        "asks Sarathi's doctor what's wrong and says what's new")
+                        "asks Sarathi's doctor what's wrong and says what's new; "
+                        "'backup' asks Sarathi to back the house up")
     p.add_argument("--as", dest="as_actor", default="", metavar="ACTOR",
                    help="the Dvara-road person this runs as and is sent to "
                         "(default: $SAMAY_DVARA_ACTOR)")
@@ -181,12 +183,28 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("status", help="is the clock running, and where")
     p.add_argument("--json", action="store_true", dest="json_out")
+
+    p = sub.add_parser("keeps", help="where the schedules and logbook are kept, "
+                       "for a backup")
+    p.add_argument("--json", action="store_true", dest="json_out")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     state = state_dir(args.state)
+    if args.command == "keeps":
+        # before the store is opened: asking where never makes the file
+        from samay.keeps import report as keeps
+        said = keeps(state)
+        if args.json_out:
+            print(json.dumps(said))
+        else:
+            for place in said["keeps"]:
+                print(f"{place['id']}  {place['path']}"
+                      + ("" if place["exists"] else "  (not there yet)"))
+                print(f"       {place['what']}")
+        return 0
     try:
         store = open_store(state)
     except OSError as exc:
@@ -345,7 +363,8 @@ def _dvara() -> Dvara | None:
 def _runners(state: Path) -> dict:
     dvara = _dvara()
     runners: dict = {"direct": DirectRunner(state / "work", ask=dvara),
-                     "tests": KeptTestsRunner(), "doctor": DoctorRunner()}
+                     "tests": KeptTestsRunner(), "doctor": DoctorRunner(),
+                     "backup": BackupRunner()}
     if dvara is not None:
         runners["dvara"] = DvaraRunner(dvara)
     return runners

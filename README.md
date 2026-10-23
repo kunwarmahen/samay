@@ -254,6 +254,11 @@ timed out or were interrupted (the schedule's words, when, and the run's
 summary, never its reply), so `sarathi doctor` can say "the 08:00 inbox
 check failed" without reading the logbook.
 
+`samay keeps --json` (`samay.keeps.v1`) says where the schedules and
+the logbook are kept, for `sarathi backup`: the state folder, without
+the running clock's record (`serve.json`). It answers before the file is
+opened, so asking on a fresh computer makes no empty logbook.
+
 **In Yantra, there's nothing to set up.** When `samay` is on `PATH` (or
 `YANTRA_SAMAY` names it), Yantra reads `samay status --json` at startup,
 starts `samay mcp --for local` itself, and writes the approval card for
@@ -381,8 +386,8 @@ tools run without being named in `--allow-tools`.
 
 Every schedule that asks the agent something runs one of two ways. Both
 run the same Yantra; they differ in *who* the run is, and where its
-answer can go. (Two more roads, `tests` and `doctor`, ask nothing: see
-below.)
+answer can go. (Three more roads, `tests`, `doctor` and `backup`, ask
+nothing: see below.)
 
 | | `--runner direct` (default) | `--runner dvara` |
 |---|---|---|
@@ -458,6 +463,22 @@ a failed run that says why. On Samay's page it's Run: *Sarathi's doctor*,
 and Sarathi's Settings → Check has **Check every morning**. See
 [09 — the house, every morning](notes/09-the-house-every-morning.md).
 
+**The house, backed up every night** (`--runner backup`). Sarathi makes
+the backup (`sarathi backup`: every program's files in one locked
+file). This road asks it to, with `POST SAMAY_BACKUP_URL` and
+`SAMAY_BACKUP_TOKEN`, a key that makes a backup and opens nothing else.
+No passphrase is in Samay: a backup is sealed to a public key.
+
+```bash
+samay add "the house, backed up" --when "at 02:30" --runner backup
+```
+
+A night that worked is `NOTHING NEW`. A backup that couldn't be made,
+or was made without part of the house, is a failed run that says what.
+On Samay's page it's Run: *Sarathi's backup*, and Sarathi's Settings →
+Check has **Back up every night**. See
+[12 — the house, backed up every night](notes/12-the-house-backed-up-every-night.md).
+
 `--wait MINUTES` (default 30) is how long, in all, a run's questions may
 wait for the person. One that outwaits it **lapses**: refused, and the
 run's record says what it was (`samay runs`: `asked, not answered: …`).
@@ -505,6 +526,7 @@ it's made: it would wake up without them.
 | `SAMAY_YANTRA_HOME` | the folder Yantra starts in, for its `.env` |
 | `SAMAY_TESTS_PROVIDER`, `SAMAY_TESTS_MODEL` | what `--runner tests` replays the kept tests on (`ollama`, `qwen3.8:latest`); unset, Yantra's own default. Give both: a model alone is guessed a provider |
 | `SAMAY_DOCTOR_URL`, `SAMAY_DOCTOR_TOKEN` | where `--runner doctor` asks Sarathi's doctor (`…/api/doctor?news=1`), and the key that opens it; `sarathi up` sets both |
+| `SAMAY_BACKUP_URL`, `SAMAY_BACKUP_TOKEN` | where `--runner backup` asks Sarathi for a backup (`…/api/backup`), and the key that makes one; `sarathi up` sets both |
 | `SAMAY_TZ` | the default time zone for new schedules (else `$TZ` when it names a zone, else this machine's) |
 | `SAMAY_DVARA_URL` | where Dvara's HTTP surface is; set, answers are sent and `--runner dvara` works |
 | `SAMAY_DVARA_TOKEN` | Dvara's `DVARA_TOKEN` |
@@ -543,7 +565,9 @@ src/samay/
 │                 restart carries a stopped one on from its last step,
 │                 never beside a Yantra still holding it (notes/10); the file
 │                 is kept 30 days after, and its steps read by `yantra
-│                 --steps FILE --json` (notes/11)
+│                 --steps FILE --json` (notes/11); the backup road:
+│                 Sarathi's backup over HTTP, NOTHING NEW when it was all
+│                 made (notes/12)
 ├── dvara.py      the Dvara road: POST /message as the person, unattended, with
 │                 what they allowed ahead of time, its wait, and the phone
 │                 and its steps when it works one (notes/06), named as
@@ -553,6 +577,8 @@ src/samay/
 │                 a token on every call, localhost by default
 ├── static/       the page: one file and its icon, nothing fetched from anywhere
 ├── mcp.py        the agent's tools, for one person (stdio MCP, by hand)
+├── keeps.py      samay keeps --json: where the schedules and logbook are, for
+│                 Sarathi's backup (samay.keeps.v1), asked before the file opens
 ├── status.py     samay status --json: is it here, is the clock running (a
 │                 lock it holds, notes/05),
 │                 how to start the tools, where the running clock
@@ -565,7 +591,7 @@ src/samay/
 ## Status
 
 The clock, the records, the rules above, all four roads, the page and the
-agent's tools all work, and are covered by 236 tests. The API is not
+agent's tools all work, and are covered by 244 tests. The API is not
 stable.
 
 Not here yet:

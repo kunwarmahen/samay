@@ -74,4 +74,7 @@ fresh.
 * Each person behind Dvara doesn't get their own doctor. The house has
   one owner, and the doctor's lines are the owner's to act on.
 
+The same road, for the night's backup: [12 — the house, backed up every
+night](12-the-house-backed-up-every-night.md).
+
 Tests: `tests/test_doctor_road.py` (7).

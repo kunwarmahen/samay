@@ -40,6 +40,15 @@ doctor says what is NEW since the last time it was asked this way, and
 an answer with nothing new red or amber is NOTHING NEW: a phone left
 unplugged all week is said once, not every morning.
 
+THE BACKUP ROAD is the doctor road's twin: Sarathi makes the backup
+(``sarathi backup``: every program's files in one locked file), asked
+with POST ``$SAMAY_BACKUP_URL`` and ``$SAMAY_BACKUP_TOKEN``, a key that
+makes a backup and opens nothing -- a backup is sealed to a public key,
+so no passphrase is in Samay. A night that went well is NOTHING NEW; a
+backup that couldn't be made, or was made without something (a program
+that couldn't say what it keeps, a database that wasn't running), is a
+failed run that says what.
+
 A RUN STOPPED BY A RESTART IS CARRIED ON, NOT RUN AGAIN. Each run is a
 ``Job`` (its id, and whether this is a carry-on), set by the clock for
 the runner it calls (``JOB``). On the direct road the job names a
@@ -85,6 +94,8 @@ TESTS_FORMAT = "yantra.tests.v1"
 DOCTOR_FORMAT = "sarathi.doctor.v1"
 #: How long the doctor may take to look.
 DOCTOR_TIMEOUT = 120
+#: The only shape of Sarathi's backup answer this reads.
+BACKUP_FORMAT = "sarathi.backup.made.v1"
 
 #: How long a killed run gets to exit after SIGTERM before SIGKILL.
 KILL_GRACE = 5.0
@@ -491,6 +502,75 @@ class DoctorRunner:
                 f"the doctor answered in a format this Samay does not know "
                 f"({got!r}; want {DOCTOR_FORMAT})"))
         return RunResult(ok=True, text=doctor_said(data), stop_reason="doctor")
+
+
+class BackupRunner:
+    """Ask Sarathi to make a backup; quiet when it went well."""
+
+    def __init__(self, *, url: str | None = None, token: str | None = None,
+                 post=None) -> None:
+        self.url = url if url is not None else os.environ.get("SAMAY_BACKUP_URL", "").strip()
+        self.token = (token if token is not None
+                      else os.environ.get("SAMAY_BACKUP_TOKEN", "").strip())
+        self.post = post or _post_json
+
+    def run(self, schedule: Schedule, prompt: str) -> RunResult:
+        if not self.url or not self.token:
+            return RunResult(ok=False, stop_reason="error", detail=(
+                "nobody to make the backup: SAMAY_BACKUP_URL and SAMAY_BACKUP_TOKEN are "
+                "unset (`sarathi up` sets them)"))
+        try:
+            data = self.post(self.url, self.token, schedule.time_limit)
+        except Exception as exc:          # unreachable, refused (no passphrase yet), not JSON
+            return RunResult(ok=False, stop_reason="error",
+                             detail=f"the backup wasn't made: {_why(exc)}")
+        if not isinstance(data, dict) or data.get("format") != BACKUP_FORMAT:
+            got = data.get("format") if isinstance(data, dict) else None
+            return RunResult(ok=False, stop_reason="error", detail=(
+                f"Sarathi answered in a format this Samay does not know "
+                f"({got!r}; want {BACKUP_FORMAT})"))
+        text = backup_said(data)
+        if data.get("ok"):
+            return RunResult(ok=True, text=text, stop_reason="backup")
+        return RunResult(ok=False, text=text, stop_reason="backup",
+                         detail="; ".join(data.get("problems") or []) or "not all of it")
+
+
+def backup_said(data: dict) -> str:
+    """A night's backup in words: NOTHING NEW when it was all made."""
+    made = f"{data.get('file')} ({_size(data.get('bytes') or 0)})"
+    removed = data.get("removed") or []
+    tail = f"; {len(removed)} older removed" if removed else ""
+    if data.get("ok"):
+        return f"NOTHING NEW\nBacked up: {made}{tail}."
+    return "\n".join([f"Backed up, but not all of it: {made}{tail}.",
+                      *(f"· not in it: {p}" for p in data.get("problems") or [])])
+
+
+def _size(n: float) -> str:
+    for unit in ("bytes", "KB", "MB", "GB"):
+        if n < 1024 or unit == "GB":
+            return f"{n:.0f} {unit}" if unit == "bytes" else f"{n:.1f} {unit}"
+        n /= 1024
+    return str(n)
+
+
+def _why(exc: Exception) -> str:
+    """An HTTP refusal's own words (``detail``), else the error."""
+    try:
+        detail = json.loads(exc.read() or b"{}").get("detail")       # type: ignore[attr-defined]
+    except Exception:
+        detail = None
+    return str(detail or exc)
+
+
+def _post_json(url: str, token: str, timeout: float) -> dict:
+    import urllib.request
+
+    request = urllib.request.Request(url, data=b"{}", method="POST", headers={
+        "Authorization": f"Bearer {token}", "Content-Type": "application/json"})
+    with urllib.request.urlopen(request, timeout=timeout) as answer:
+        return json.loads(answer.read().decode("utf-8"))
 
 
 def _get_json(url: str, token: str, timeout: float) -> dict:
