@@ -15,7 +15,10 @@ an unwatched schedule goes wrong:
   the next time comes, the new time is recorded as ``skipped``.
 * THE NEXT TIME IS CLAIMED BEFORE THE RUN STARTS. A crash mid-run must
   not run the same time again on restart (a run spends money, and may
-  have done something); it shows up as ``interrupted`` instead.
+  have done something). What it saved is CARRIED ON instead, from its
+  last step, when the restart comes within the schedule's grace of the
+  run's start and the road has something saved (runners.py ``Job``):
+  nothing done is done twice. Otherwise it shows up as ``interrupted``.
 * TOO MANY FAILURES IN A ROW PAUSE THE SCHEDULE, and the person is told
   once. Three, by default. A schedule that fails every hour all night is
   a night of bills and no answers.
@@ -62,7 +65,7 @@ from datetime import datetime, timedelta
 from typing import Protocol
 
 from samay import when as when_mod
-from samay.runners import Runner, RunResult
+from samay.runners import JOB, Job, Runner, RunResult
 from samay.store import (FAILURES, Run, Schedule, Store, from_iso, iso,
                          now_utc)
 
@@ -209,12 +212,42 @@ class Clock:
     def serve(self, stop: threading.Event,
               on_start: Callable[[int], None] | None = None) -> None:
         """Tick until ``stop`` is set."""
-        interrupted = self.store.interrupt_unfinished(self.now())
+        interrupted = self.carry_on_or_interrupt()
         if on_start is not None:
             on_start(interrupted)
         while not stop.is_set():
             self.tick()
             stop.wait(self.sleep_for())
+
+    def carry_on_or_interrupt(self) -> int:
+        """Every run a dead Samay left ``running``: carried on from what it
+        saved when that is recent and there is something to go on from;
+        interrupted otherwise. Returns how many were interrupted."""
+        now = self.now()
+        interrupted = 0
+        for run in self.store.running():
+            schedule = self.store.get(run.schedule)
+            runner = self.runners.get(schedule.runner) if schedule else None
+            can = getattr(runner, "can_carry", None)
+            started = from_iso(run.started_at)
+            recent = (schedule is not None and started is not None
+                      and now - started <= when_mod.parse(schedule.when,
+                                                          schedule.tz).grace())
+            if recent and callable(can) and can(schedule, run.id):
+                with self._lock:
+                    self._running.add(schedule.id)
+                self._pool.submit(self._execute, schedule, from_iso(run.due_at),
+                                  carrying=run)
+                continue
+            why = ("Samay stopped while this was running; it was not run again"
+                   + ("" if recent or schedule is None else
+                      ", and it is too long ago to carry on")
+                   + ("" if not recent or callable(can) else
+                      " (this road cannot carry a run on)")
+                   + ".")
+            self.store.interrupt(run, why, at=now)
+            interrupted += 1
+        return interrupted
 
     def sleep_for(self) -> float:
         now = self.now()
@@ -289,9 +322,10 @@ class Clock:
             self._running.add(schedule.id)
         return self._pool.submit(self._execute, schedule, due)
 
-    def _execute(self, schedule: Schedule, due: datetime) -> Run:
+    def _execute(self, schedule: Schedule, due: datetime,
+                 carrying: Run | None = None) -> Run:
         try:
-            run = self.store.start_run(schedule.id, due, at=self.now())
+            run = carrying or self.store.start_run(schedule.id, due, at=self.now())
             report = (self.store.last_told(schedule.id)
                       if schedule.notify == "when_new" else None)
             prompt = compose(schedule, self.store.last_finished(schedule.id), report)
@@ -301,11 +335,24 @@ class Clock:
                                    detail=f"no {schedule.runner} runner is set "
                                           "up in this Samay")
             else:
+                # the run in hand, for what it saves and to go on from it
+                job = JOB.set(Job(run.id, carry=carrying is not None))
                 try:
                     result = runner.run(schedule, prompt)
                 except Exception as exc:    # a runner's bug is a failed run
                     result = RunResult(ok=False, stop_reason="error",
                                        detail=f"{type(exc).__name__}: {exc}")
+                finally:
+                    JOB.reset(job)
+            if carrying is not None:
+                if result.stop_reason == "nothing":
+                    self.store.interrupt(run, "Samay stopped while this was running, "
+                                         "and nothing was saved to carry on from; "
+                                         "it was not run again.", at=self.now())
+                    self._told(schedule, run)
+                    return run
+                result.detail = ("carried on after a restart"
+                                 + (f"; {result.detail}" if result.detail else ""))
             self._record(schedule, run, result)
             return run
         finally:

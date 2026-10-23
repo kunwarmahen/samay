@@ -317,6 +317,18 @@ class Store:
                 (schedule_id,)).fetchone()
         return _load(Run, row) if row else None
 
+    def running(self) -> list[Run]:
+        """Runs a process left ``running``: going now, or a dead one's."""
+        with self._db() as db:
+            rows = db.execute("SELECT * FROM run WHERE outcome = 'running' "
+                              "ORDER BY started_at").fetchall()
+        return [_load(Run, row) for row in rows]
+
+    def interrupt(self, run: Run, detail: str, at: datetime | None = None) -> None:
+        """One run a dead process left ``running``: interrupted, and why."""
+        run.outcome, run.summary, run.detail = "interrupted", "interrupted", detail
+        self.finish_run(run, at=at)
+
     def interrupt_unfinished(self, at: datetime | None = None) -> int:
         """Runs a dead process left ``running``: said to be interrupted."""
         with self._db() as db:

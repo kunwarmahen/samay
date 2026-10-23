@@ -18,6 +18,12 @@ person, with ``unattended: true``:
 And the answer goes back the same way: ``POST /notify`` puts it on the
 person's channels. Samay decides WHETHER to send; Dvara only sends.
 
+CARRIED ON BY ITS THREAD. A run's thread is named after it
+(``samay-<schedule>-<run>``), so after a restart the clock can ask Dvara
+to go on with the same one (``carry_on: true``); Dvara answers
+``nothing`` when it has no stopped turn there, and the run stays
+interrupted.
+
 A FRESH CONVERSATION EVERY RUN. Each run is its own thread,
 ``samay-<schedule>-<time>``, so a schedule that has run four hundred
 times does not drag four hundred answers into its next prompt; what
@@ -36,7 +42,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 
-from samay.runners import RunResult
+from samay.runners import JOB, RunResult
 from samay.store import Schedule
 
 #: How long a call that is not a turn may take (the agent list, a notice).
@@ -129,19 +135,27 @@ class DvaraRunner:
     def __init__(self, dvara: Dvara) -> None:
         self.dvara = dvara
 
+    def can_carry(self, schedule: Schedule, job_id: str) -> bool:
+        """Dvara knows whether the thread holds a stopped turn; it is
+        asked, and answers ``nothing`` when not."""
+        return True
+
     def run(self, schedule: Schedule, prompt: str) -> RunResult:
         actor = self.dvara.actor_for(schedule)
         if not actor:
             return RunResult(ok=False, stop_reason="error", detail=(
                 "this schedule names nobody Dvara knows: add it with --as "
                 "ACTOR, or set SAMAY_DVARA_ACTOR"))
+        job = JOB.get()
         body = {"actor": actor, "agent": schedule.agent,
-                "thread": f"samay-{schedule.id}-{int(time.time())}",
+                "thread": f"samay-{schedule.id}-{job.id if job else int(time.time())}",
                 "text": prompt, "unattended": True,
                 # so Dvara's page labels the turn as Samay's
                 "came_by": "samay",
                 "allow_tools": list(schedule.allow_tools),
                 "wait": schedule.wait * 60}
+        if job is not None and job.carry:
+            body["carry_on"] = True
         limit = schedule.time_limit
         if schedule.phone:
             body.update(phone=schedule.phone_name or True,
@@ -162,6 +176,10 @@ class DvaraRunner:
         except DvaraError as exc:
             return RunResult(ok=False, stop_reason="error", detail=str(exc))
         held = reply.get("held")
+        if reply.get("stop_reason") == "nothing":
+            # asked to carry on, and Dvara had no stopped turn in the thread
+            return RunResult(ok=False, stop_reason="nothing",
+                             detail=str(reply.get("text") or ""))
         if reply.get("stop_reason") == "skipped":
             # the phone was in use, or stayed locked: nothing was done
             return RunResult(ok=True, stop_reason="skipped", skipped=True,

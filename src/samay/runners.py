@@ -40,6 +40,17 @@ doctor says what is NEW since the last time it was asked this way, and
 an answer with nothing new red or amber is NOTHING NEW: a phone left
 unplugged all week is said once, not every morning.
 
+A RUN STOPPED BY A RESTART IS CARRIED ON, NOT RUN AGAIN. Each run is a
+``Job`` (its id, and whether this is a carry-on), set by the clock for
+the runner it calls (``JOB``). On the direct road the job names a
+checkpoint file, ``yantra --job FILE``: Yantra saves the run after every
+step, and given a file holding a run that was stopped, goes on from its
+last step (Yantra's carry.py). On the Dvara road it names the thread,
+and a carry-on asks Dvara with ``carry_on: true``. ``can_carry`` says
+whether there is anything saved to go on from: with nothing, the run
+stays ``interrupted`` and is not started over (it may have spent money
+or done something).
+
 WHERE YANTRA RUNS FROM. Yantra reads ``.env`` from the directory it
 starts in, which is where a person keeps their model and keys. So the
 process starts in ``$SAMAY_YANTRA_HOME`` when it is set (typically the
@@ -56,7 +67,9 @@ import shlex
 import shutil
 import signal
 import subprocess
+import sqlite3
 import sys
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
@@ -101,6 +114,59 @@ class RunResult:
 
 class Runner(Protocol):
     def run(self, schedule: Schedule, prompt: str) -> RunResult: ...
+
+
+@dataclass(frozen=True)
+class Job:
+    """The run a runner is doing: its id names what it saves (a
+    checkpoint file, a thread), and ``carry`` asks it to go on from there."""
+    id: str
+    carry: bool = False
+
+
+#: The run in hand, set by the clock around ``runner.run`` (its worker
+#: thread's own). None: an extra run started some other way, nothing saved.
+JOB: ContextVar[Job | None] = ContextVar("samay_job", default=None)
+
+#: Where a direct run's checkpoint is, inside it: Yantra's one session.
+JOB_SESSION = "job"
+
+
+def still_running(path: Path) -> bool:
+    """Whether a Yantra still holds this job (``FILE.lock``): one Samay
+    lost track of, alive and working, is never carried on beside itself."""
+    import fcntl
+    lock = Path(f"{path}.lock")
+    if not lock.exists():
+        return False
+    with open(lock, "a") as handle:
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return True
+        fcntl.flock(handle, fcntl.LOCK_UN)
+    return False
+
+
+def stopped_part_way(path: Path) -> bool:
+    """Whether a ``yantra --job`` file's newest checkpoint is a run still
+    going (``unfinished``) that nothing is running now. Read with sqlite3
+    alone: Samay imports nothing of Yantra's."""
+    if not path.is_file() or still_running(path):
+        return False
+    try:
+        with sqlite3.connect(path) as db:
+            row = db.execute(
+                "SELECT payload FROM checkpoints WHERE session_id = ? "
+                "ORDER BY version DESC LIMIT 1", (JOB_SESSION,)).fetchone()
+    except sqlite3.Error:
+        return False
+    if row is None:
+        return False
+    try:
+        return bool(json.loads(row[0]).get("unfinished"))
+    except (ValueError, AttributeError):
+        return False
 
 
 class RunnerMissing(RuntimeError):
@@ -160,6 +226,14 @@ class DirectRunner:
         """Who this schedule's questions go to through Dvara ("" for nobody)."""
         return self.ask.actor_for(schedule) if self.ask is not None else ""
 
+    def job_file(self, schedule: Schedule, job: Job) -> Path:
+        """A run's checkpoint: beside the work folders, never in one, so
+        the agent's own tools cannot read or change it."""
+        return self.work / ".jobs" / f"{schedule.id}-{job.id}.sqlite"
+
+    def can_carry(self, schedule: Schedule, job_id: str) -> bool:
+        return stopped_part_way(self.job_file(schedule, Job(job_id)))
+
     def argv(self, schedule: Schedule, prompt: str) -> list[str]:
         command = self.command or find_yantra()
         argv = [*command, "--cwd", str(self.work / schedule.id),
@@ -168,6 +242,9 @@ class DirectRunner:
             argv += ["--agent", schedule.agent]
         for glob in schedule.allow_tools:
             argv += ["--allow-tools", glob]
+        job = JOB.get()
+        if job is not None:
+            argv += ["--job", str(self.job_file(schedule, job))]
         return [*argv, "--prompt", prompt]
 
     def env(self, schedule: Schedule) -> dict[str, str]:
@@ -228,6 +305,20 @@ class DirectRunner:
         if skipped is not None:
             return skipped
         (self.work / schedule.id).mkdir(parents=True, exist_ok=True)
+        job = JOB.get()
+        if job is not None:
+            self.job_file(schedule, job).parent.mkdir(parents=True, exist_ok=True)
+        try:
+            return self._run(schedule, argv)
+        finally:
+            # A run that came back, however it ended, is over: only one
+            # Samay never saw end leaves its checkpoint, to be carried on.
+            if job is not None:
+                done = self.job_file(schedule, job)
+                done.unlink(missing_ok=True)
+                Path(f"{done}.lock").unlink(missing_ok=True)
+
+    def _run(self, schedule: Schedule, argv: list[str]) -> RunResult:
         cwd = self.home if self.home and self.home.is_dir() else self.work
         try:
             # A session of its own, so the browser the turn started goes

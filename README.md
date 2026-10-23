@@ -326,7 +326,8 @@ If a schedule is paused (see below), you're always told, whatever
 | It finished, but a tool it reached for wasn't allowed (or you said no) | `refused` | tells you what wasn't allowed and how to allow it (whatever `--notify` says, unless `never`); the schedule goes on |
 | It failed 3 times in a row | `failed` | **pauses the schedule** and tells you |
 | It ran past its time limit (default 10 minutes) | `timed_out` | stops it, browser and all |
-| Samay stopped while it ran | `interrupted` | doesn't run it again |
+| Samay stopped while it ran, and came back soon (within the schedule's grace) | the run's own outcome, its detail *carried on after a restart* | **carries it on from its last step**: Yantra saved every step (`--job`), or Dvara did (`carry_on`); nothing done is done again, and the agent looks again before it acts ([notes/10](notes/10-a-run-a-restart-stopped.md)) |
+| Samay stopped while it ran, longer ago, or with nothing saved | `interrupted` | doesn't run it again |
 
 Tools a run reached for and wasn't allowed are listed under the run
 (`not allowed: web_fetch, bash (samay allow ID TOOL)`), and the run is
@@ -519,7 +520,8 @@ src/samay/
 ├── store.py      the SQLite file: schedules (the promise) and runs (the receipt)
 ├── schedules.py  add / pause / resume / allow / remove, the per-person cap,
 │                 preview; a tool to allow checked as a grant (notes/07)
-├── clock.py      the rules: missed, skipped, claimed before running, paused
+├── clock.py      the rules: missed, skipped, claimed before running, a run a
+│                 restart stopped carried on when recent and saved (notes/10), paused
 │                 after failures or a need, what is sent (a when_new run is
 │                 shown the last report, note 04), a refused run said as
 │                 one with the way to allow it (notes/07); samay serve's loop
@@ -530,7 +532,10 @@ src/samay/
 │                 the tests road: yantra --tests --json, NOTHING NEW unless
 │                 something broke or could not run (notes/08); the doctor
 │                 road: Sarathi's doctor over HTTP, NOTHING NEW unless
-│                 something newly red or amber (notes/09)
+│                 something newly red or amber (notes/09); each run a Job
+│                 (JOB): its id names the run's --job checkpoint, and a
+│                 restart carries a stopped one on from its last step,
+│                 never beside a Yantra still holding it (notes/10)
 ├── dvara.py      the Dvara road: POST /message as the person, unattended, with
 │                 what they allowed ahead of time, its wait, and the phone
 │                 and its steps when it works one (notes/06), named as
