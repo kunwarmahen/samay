@@ -419,7 +419,10 @@ A night where nothing broke and every suite ran is `NOTHING NEW`, and
 with the usual `when_new` it is kept quiet. Red that was red the night
 before isn't news either. Something that broke since last time is sent,
 naming the cases. A suite that could not run (the model not answering,
-a package gone) is a failed run with its reason. See
+a package gone) is a failed run with its reason. On Samay's page, it is
+**New schedule** → *Which agent, and how it runs* → Run: *the kept
+tests*. Sarathi's home page has a button that makes this one schedule
+for you. See
 [08 — a night of your own tests](notes/08-a-night-of-kept-tests.md).
 
 `--wait MINUTES` (default 30) is how long, in all, a run's questions may

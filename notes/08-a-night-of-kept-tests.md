@@ -26,6 +26,10 @@ takes no agent, no tools, no phone and no browser profile. It replays
 each suite against the agent that suite was kept from, so there is
 nothing to give it, and anything given is refused when it is made.
 
+On Samay's page the same road is the third choice under *Run* (*the
+kept tests*), and Sarathi's home page has a button that asks Samay's
+API for exactly this schedule (Sarathi's note 27).
+
 ## Only news is sent
 
 Under `when_new` (note 04), a run whose reply is NOTHING NEW is kept
