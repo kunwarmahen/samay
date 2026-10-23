@@ -45,7 +45,7 @@ from samay import __version__, mcp, schedules
 from samay.clock import Clock
 from samay.dvara import Dvara, DvaraError, DvaraNotifier, DvaraRunner
 from samay.http import DEFAULT_PORT, Api, SamayServer, serve_token
-from samay.runners import DirectRunner
+from samay.runners import DirectRunner, KeptTestsRunner
 from samay.status import hold_clock, report, samay_command, serving
 from samay.store import NOTIFY, Run, Schedule, Store, from_iso
 
@@ -82,9 +82,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--agent", default="", metavar="DIR|NAME",
                    help="the agent package to run (default: plain Yantra); "
                         "on the Dvara road, an agent's name on its roster")
-    p.add_argument("--runner", choices=("direct", "dvara"), default="direct",
+    p.add_argument("--runner", choices=("direct", "dvara", "tests"), default="direct",
                    help="run it here (default), or through Dvara as a person "
-                        "-- their allowance, their rules, their Telegram")
+                        "-- their allowance, their rules, their Telegram; "
+                        "'tests' replays every conversation kept as a test "
+                        "(yantra --tests) instead of asking anything")
     p.add_argument("--as", dest="as_actor", default="", metavar="ACTOR",
                    help="the Dvara-road person this runs as and is sent to "
                         "(default: $SAMAY_DVARA_ACTOR)")
@@ -340,7 +342,8 @@ def _dvara() -> Dvara | None:
 
 def _runners(state: Path) -> dict:
     dvara = _dvara()
-    runners: dict = {"direct": DirectRunner(state / "work", ask=dvara)}
+    runners: dict = {"direct": DirectRunner(state / "work", ask=dvara),
+                     "tests": KeptTestsRunner()}
     if dvara is not None:
         runners["dvara"] = DvaraRunner(dvara)
     return runners

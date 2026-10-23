@@ -368,8 +368,9 @@ tools run without being named in `--allow-tools`.
 
 ## Two roads
 
-Every schedule runs one of two ways. Both run the same Yantra; they
-differ in *who* the run is, and where its answer can go.
+Every schedule that asks the agent something runs one of two ways. Both
+run the same Yantra; they differ in *who* the run is, and where its
+answer can go. (A third road, `tests`, asks nothing: see below.)
 
 | | `--runner direct` (default) | `--runner dvara` |
 |---|---|---|
@@ -399,6 +400,27 @@ Dvara doesn't offer, or nobody to run as, is refused before anything
 is saved. Each run tells Dvara it came from Samay, so Dvara's page
 labels it `samay` beside Telegram, the web chat and the terminal, and
 its owner can filter by it.
+
+**Your kept tests, every night** (`--runner tests`). A conversation
+you kept as a test (Yantra's `--keep-test`, `/chats test`, the page's
+History, Dvara's `/keep test`) is replayed with the tools answering from
+what they said then, so nothing real runs (Yantra's note 141). This road
+asks no agent anything. It runs `yantra --tests --json`, which covers
+every suite, yours and each person's, each against its own agent, and
+writes the night in the logbook:
+
+```bash
+export SAMAY_TESTS_PROVIDER=ollama SAMAY_TESTS_MODEL=qwen3.8:latest
+samay add "the night's kept tests" --when "at 03:00" --runner tests \
+      --time-limit 3600
+```
+
+A night where nothing broke and every suite ran is `NOTHING NEW`, and
+with the usual `when_new` it is kept quiet. Red that was red the night
+before isn't news either. Something that broke since last time is sent,
+naming the cases. A suite that could not run (the model not answering,
+a package gone) is a failed run with its reason. See
+[08 — a night of your own tests](notes/08-a-night-of-kept-tests.md).
 
 `--wait MINUTES` (default 30) is how long, in all, a run's questions may
 wait for the person. One that outwaits it **lapses**: refused, and the
@@ -445,6 +467,7 @@ it's made: it would wake up without them.
 | `SAMAY_STATE` | where schedules and runs are kept (default `~/.samay`; also `--state`) |
 | `SAMAY_YANTRA` | the command that starts Yantra; may be several words (`uv run --project ~/yantra yantra`) |
 | `SAMAY_YANTRA_HOME` | the folder Yantra starts in, for its `.env` |
+| `SAMAY_TESTS_PROVIDER`, `SAMAY_TESTS_MODEL` | what `--runner tests` replays the kept tests on (`ollama`, `qwen3.8:latest`); unset, Yantra's own default. Give both: a model alone is guessed a provider |
 | `SAMAY_TZ` | the default time zone for new schedules (else `$TZ` when it names a zone, else this machine's) |
 | `SAMAY_DVARA_URL` | where Dvara's HTTP surface is; set, answers are sent and `--runner dvara` works |
 | `SAMAY_DVARA_TOKEN` | Dvara's `DVARA_TOKEN` |
@@ -473,7 +496,9 @@ src/samay/
 ├── runners.py    the direct road: yantra as a program, killed with its whole
 │                 process group at the time limit, only its JSON believed;
 │                 with a Dvara it tells that Yantra where to ask its person
-│                 (YANTRA_ASK_URL) and adds the wait to the limit (notes/07)
+│                 (YANTRA_ASK_URL) and adds the wait to the limit (notes/07);
+│                 the tests road: yantra --tests --json, NOTHING NEW unless
+│                 something broke or could not run (notes/08)
 ├── dvara.py      the Dvara road: POST /message as the person, unattended, with
 │                 what they allowed ahead of time, its wait, and the phone
 │                 and its steps when it works one (notes/06), named as
@@ -494,8 +519,8 @@ src/samay/
 
 ## Status
 
-The clock, the records, the rules above, both roads, the page and the
-agent's tools all work, and are covered by 205 tests. The API is not
+The clock, the records, the rules above, all three roads, the page and the
+agent's tools all work, and are covered by 211 tests. The API is not
 stable.
 
 Not here yet:

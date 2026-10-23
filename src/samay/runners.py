@@ -23,6 +23,13 @@ The Dvara road -- the same turn, run as a person through Dvara, so their
 allowance, rules and channels apply -- is a second runner with the same
 shape.
 
+THE TESTS ROAD is not a turn at all. ``yantra --tests --json`` replays
+every conversation kept as a test (Yantra's note 141), each suite
+against its own agent, and prints one summary (``yantra.tests.v1``).
+This writes it in the logbook and answers NOTHING NEW when nothing broke
+and every suite ran, so a ``when_new`` schedule says something only on
+the morning there is something to say.
+
 WHERE YANTRA RUNS FROM. Yantra reads ``.env`` from the directory it
 starts in, which is where a person keeps their model and keys. So the
 process starts in ``$SAMAY_YANTRA_HOME`` when it is set (typically the
@@ -48,6 +55,8 @@ from samay.store import Schedule
 
 #: The only shape of ``yantra --json`` this reads.
 YANTRA_FORMAT = "yantra.run.v1"
+#: The only shape of ``yantra --tests --json`` this reads.
+TESTS_FORMAT = "yantra.tests.v1"
 
 #: How long a killed run gets to exit after SIGTERM before SIGKILL.
 KILL_GRACE = 5.0
@@ -271,3 +280,102 @@ def _read(out: str, err: str) -> RunResult:
     tail = "\n".join((err or "").strip().splitlines()[-STDERR_TAIL:])
     return RunResult(ok=False, stop_reason="error",
                      detail=tail or "yantra printed no answer")
+
+
+class KeptTestsRunner:
+    """Run every kept test (``yantra --tests --json``) and say what moved.
+
+    The schedule's prompt is only its name here: nobody is asked
+    anything. ``$SAMAY_TESTS_PROVIDER`` and ``$SAMAY_TESTS_MODEL`` pick
+    what the tests run on (``ollama`` and the tag loaded locally, say),
+    else Yantra's own default. A model alone is guessed a provider by
+    Yantra, which may not be the one that has it.
+    """
+
+    def __init__(self, *, command: list[str] | None = None,
+                 home: Path | None = None) -> None:
+        self.command = command
+        raw_home = os.environ.get("SAMAY_YANTRA_HOME", "").strip()
+        self.home = home or (Path(raw_home).expanduser() if raw_home else None)
+
+    def argv(self) -> list[str]:
+        argv = [*(self.command or find_yantra()), "--tests", "--json"]
+        provider = os.environ.get("SAMAY_TESTS_PROVIDER", "").strip()
+        model = os.environ.get("SAMAY_TESTS_MODEL", "").strip()
+        if provider:
+            argv += ["--provider", provider]
+        return [*argv, "--model", model] if model else argv
+
+    def run(self, schedule: Schedule, prompt: str) -> RunResult:
+        try:
+            argv = self.argv()
+        except RunnerMissing as exc:
+            return RunResult(ok=False, stop_reason="error", detail=str(exc))
+        cwd = self.home if self.home and self.home.is_dir() else None
+        try:
+            proc = subprocess.Popen(argv, cwd=cwd, env={**os.environ,
+                                                       "YANTRA_UNATTENDED": "1"},
+                                    stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE, text=True,
+                                    start_new_session=True)
+        except OSError as exc:
+            return RunResult(ok=False, stop_reason="error",
+                             detail=f"could not start {argv[0]}: {exc}")
+        try:
+            out, err = proc.communicate(timeout=schedule.time_limit)
+        except subprocess.TimeoutExpired:
+            _kill(proc)
+            return RunResult(ok=False, stop_reason="timed_out", timed_out=True,
+                             detail=f"stopped after {schedule.time_limit}s, the "
+                                    "time limit for this schedule")
+        return read_tests(out, err)
+
+
+def read_tests(out: str, err: str) -> RunResult:
+    """The summary ``yantra --tests --json`` printed, in words."""
+    for line in reversed((out or "").splitlines()):
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            data = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if data.get("format") != TESTS_FORMAT:
+            return RunResult(ok=False, stop_reason="error", detail=(
+                f"yantra answered in a format this Samay does not know "
+                f"({data.get('format')!r}; want {TESTS_FORMAT})"))
+        return RunResult(ok=not data.get("errors"), text=night_said(data),
+                         stop_reason="tests",
+                         detail="" if not data.get("errors") else
+                         f"{data['errors']} suite(s) could not run")
+    tail = "\n".join((err or "").strip().splitlines()[-STDERR_TAIL:])
+    return RunResult(ok=False, stop_reason="error",
+                     detail=tail or "yantra printed no summary")
+
+
+def night_said(data: dict) -> str:
+    """A night in words. NOTHING NEW leads when nothing broke and every
+    suite ran: red that was red yesterday is not news."""
+    suites = data.get("suites") or []
+    if not suites:
+        return "NOTHING NEW\nNo conversation is kept as a test yet."
+    head = f"{data.get('passed', 0)} of {data.get('cases', 0)} kept tests passed"
+    if data.get("broke"):
+        head += f", {data['broke']} broke since last time"
+    if data.get("fixed"):
+        head += f", {data['fixed']} fixed"
+    lines = [head + "."]
+    for row in suites:
+        whose = (f"{row.get('person')}'s {row.get('agent')}" if row.get("person")
+                 else str(row.get("agent")))
+        if row.get("error"):
+            lines.append(f"· {whose}: could not run -- {row['error']}")
+        elif row.get("broke"):
+            lines.append(f"· {whose}: broke {', '.join(row['broke'])}")
+        elif row.get("fixed"):
+            lines.append(f"· {whose}: fixed {', '.join(row['fixed'])}")
+    if not data.get("broke") and not data.get("errors"):
+        lines.insert(0, "NOTHING NEW")
+    return "\n".join(lines)
+
