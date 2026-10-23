@@ -248,6 +248,10 @@ its clock is running, how to start `samay mcp`, and where the running
 clock sends answers: `dvara` (its address) and `local_to` (who hears a
 schedule made at this computer). Those two are the clock's own, written
 by `samay serve`, because a harness asks with its own environment.
+`recent` counts the last day's runs and names the ones that failed,
+timed out or were interrupted (the schedule's words, when, and the run's
+summary, never its reply), so `sarathi doctor` can say "the 08:00 inbox
+check failed" without reading the logbook.
 
 **In Yantra, there's nothing to set up.** When `samay` is on `PATH` (or
 `YANTRA_SAMAY` names it), Yantra reads `samay status --json` at startup,
@@ -513,8 +517,8 @@ src/samay/
 ├── mcp.py        the agent's tools, for one person (stdio MCP, by hand)
 ├── status.py     samay status --json: is it here, is the clock running (a
 │                 lock it holds, notes/05),
-│                 how to start the tools, and where the running clock
-│                 sends answers
+│                 how to start the tools, where the running clock
+│                 sends answers, and the last day's failed runs (recent)
 ├── unit.py       samay unit: a systemd user unit for samay serve, and an env
 │                 file (yours alone) with the settings a service would lack
 └── cli.py        the commands above

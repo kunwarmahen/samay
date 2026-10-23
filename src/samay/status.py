@@ -29,6 +29,14 @@ WHERE ANSWERS GO is the running clock's: ``dvara`` (its address) and
 by ``samay serve``. A harness runs ``samay status`` with its own
 environment, which is not the clock's.
 
+WHAT WENT WRONG LATELY, NOT WHAT RAN. ``recent`` counts the runs of the
+last day and names the ones that did not do their work (``failed``,
+``timed_out``, ``interrupted``), newest first, with the schedule's own
+words: a harness checking on the house (``sarathi doctor``) can say
+"the 08:00 inbox check failed twice" without reading the logbook. A
+count and a few lines, never the replies: those are the person's, on
+the page.
+
 NO SECRET IS IN IT. The page's token is not here; a harness that wants
 the page sends the person to ``samay serve``'s own printed address. The
 ``format`` field names the shape, and a reader should refuse one it does
@@ -42,10 +50,11 @@ import json
 import os
 import shutil
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from samay import __version__
-from samay.store import Store
+from samay.store import FAILURES, Store, iso, now_utc
 
 FORMAT = "samay.status.v1"
 
@@ -91,6 +100,27 @@ def serving(state: Path) -> dict | None:
     return info if isinstance(info, dict) else {}
 
 
+#: How far back ``recent`` looks, and how many failed runs it names.
+RECENT_HOURS = 24
+RECENT_NAMED = 5
+
+
+def recent(store: Store, now: datetime | None = None) -> dict:
+    """The last day's runs: how many, and the ones that failed."""
+    since = (now or now_utc()) - timedelta(hours=RECENT_HOURS)
+    runs = store.runs(since=iso(since), limit=500)
+    failed = [r for r in runs if r.outcome in FAILURES]
+    named = []
+    for run in failed[:RECENT_NAMED]:
+        schedule = store.get(run.schedule)
+        named.append({"schedule": run.schedule,
+                      "prompt": " ".join((schedule.prompt if schedule else "").split())[:80],
+                      "at": run.started_at or run.due_at, "outcome": run.outcome,
+                      "summary": " ".join(run.summary.split())[:160]})
+    return {"hours": RECENT_HOURS, "runs": len(runs), "failed": len(failed),
+            "named": named}
+
+
 def report(state: Path, store: Store) -> dict:
     counts = {"active": 0, "paused": 0, "done": 0}
     for schedule in store.schedules():
@@ -106,6 +136,7 @@ def report(state: Path, store: Store) -> dict:
         "serving": served is not None,
         "url": served.get("url") if served else None,
         "schedules": counts,
+        "recent": recent(store),
         "dvara": dvara,
         # Who hears a schedule made at this computer (``local``), through
         # Dvara: the running clock's $SAMAY_DVARA_ACTOR, or "" for nobody.
