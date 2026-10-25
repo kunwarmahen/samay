@@ -42,7 +42,7 @@ import threading
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from samay import __version__, mcp, schedules
+from samay import __version__, mcp, schedules, version
 from samay.clock import Clock
 from samay.dvara import Dvara, DvaraError, DvaraNotifier, DvaraRunner
 from samay.http import DEFAULT_PORT, Api, SamayServer, serve_token
@@ -66,8 +66,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--state", metavar="DIR",
                         help="where schedules and runs are kept "
                              "(default: $SAMAY_STATE or ~/.samay)")
-    parser.add_argument("--version", action="version",
-                        version=f"samay {__version__}")
+    parser.add_argument("--version", action=version.Show)
     sub = parser.add_subparsers(dest="command", required=True)
 
     p = sub.add_parser("preview", help="check a 'when' and say it in words")
