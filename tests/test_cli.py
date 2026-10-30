@@ -134,3 +134,37 @@ class TestRunNow:
         code, out, _ = run(capsys, "runs", card["id"], "--json")
         (only,) = json.loads(out)
         assert only["outcome"] == "ok"
+
+
+class TestMovingZone:
+    """A person moved: their schedules made where they were follow them,
+    and one they put in another zone on purpose stays. The bias: "every
+    morning at 8" firing at 3 am because the person crossed an ocean, or a
+    New York market reminder dragged to London with them."""
+
+    def test_their_schedules_in_the_old_zone_follow_them(self, state, capsys):
+        weather = add(capsys, "--as", "asha", when="at 08:00", prompt="the weather")
+        market = add(capsys, "--as", "asha", "--tz", "Asia/Kolkata", when="at 09:30",
+                     prompt="market open")
+        others = add(capsys, "--as", "ravi", when="at 08:00", prompt="ravi's")
+        code, out, _ = run(capsys, "zone", "asha", "--from", "America/New_York",
+                           "--to", "Europe/London", "--json")
+        assert code == 0
+        assert [c["id"] for c in json.loads(out)["moved"]] == [weather["id"]]
+        store = Store(state / "samay.sqlite3")
+        moved = store.get(weather["id"])
+        assert moved.tz == "Europe/London"
+        at = schedules.from_iso(moved.next_at).astimezone(schedules.ZoneInfo("Europe/London"))
+        assert (at.hour, at.minute) == (8, 0)                    # 8 where she is now
+        assert store.get(market["id"]).tz == "Asia/Kolkata"      # put there on purpose
+        assert store.get(others["id"]).tz == "America/New_York"  # not hers
+
+    def test_blank_is_this_machines_zone_and_a_bad_name_is_refused(self, state, capsys):
+        card = add(capsys, "--as", "asha", when="at 08:00")
+        code, out, _ = run(capsys, "zone", "asha", "--from", "", "--to", "Asia/Tokyo")
+        assert code == 0 and "moved 1 schedule of asha" in out and "(Asia/Tokyo)" in out
+        code, _, err = run(capsys, "zone", "asha", "--from", "Asia/Tokyo", "--to", "Mars/Base")
+        assert code == 2 and "not a time zone's name" in err
+        assert Store(state / "samay.sqlite3").get(card["id"]).tz == "Asia/Tokyo"
+        code, out, _ = run(capsys, "zone", "asha", "--from", "Asia/Tokyo", "--to", "Asia/Tokyo")
+        assert "moved 0 schedules" in out

@@ -9,6 +9,8 @@
     samay runs [ID]                             what happened, newest first
     samay pause ID | resume ID | rm ID
     samay allow ID TOOL...                      let it use more tools unasked, next run on
+    samay zone WHO --from OLD [--to NEW]        their schedules in OLD moved to NEW
+                                                (they moved; "" is this machine's zone)
     samay run-now ID                            once, now, here -- and wait for it
     samay serve [--port 8780]                   the clock, and its page, until stopped
     samay mcp --for WHO [--agent A]             the tools an agent uses (MCP, stdio)
@@ -180,6 +182,15 @@ def build_parser() -> argparse.ArgumentParser:
                         "and YANTRA_* settings (it starts nothing)")
     p.add_argument("--port", type=int, default=DEFAULT_PORT)
 
+    p = sub.add_parser("zone", help="move someone's schedules from the zone they "
+                       "left to the one they're in")
+    p.add_argument("owner", help="whose: a Dvara person, or local")
+    p.add_argument("--from", dest="was", required=True, metavar="ZONE",
+                   help="the zone they left (\"\": this machine's)")
+    p.add_argument("--to", default="", metavar="ZONE",
+                   help="the zone they're in now (default: this machine's)")
+    p.add_argument("--json", action="store_true", dest="json_out")
+
     p = sub.add_parser("status", help="is the clock running, and where")
     p.add_argument("--json", action="store_true", dest="json_out")
 
@@ -302,6 +313,16 @@ def _dispatch(args, store: Store, state: Path) -> int:
             print(f"  {counts['active']} active, {counts['paused']} paused, "
                   f"{counts['done']} done; state in {said['state']}")
             print("  answers go to " + (said["dvara"] or "nobody (no Dvara set)"))
+        return 0
+
+    if cmd == "zone":
+        moved = schedules.move_zone(store, args.owner, args.to, was=args.was)
+        if args.json_out:
+            print(json.dumps({"moved": [_card(s) for s in moved]}))
+            return 0
+        print(f"moved {len(moved)} schedule{'s' * (len(moved) != 1)} of {args.owner}")
+        for schedule in moved:
+            print(f"  {schedule.id}: {schedules.sentence(schedule)}")
         return 0
 
     schedule = schedules.find(store, args.id)

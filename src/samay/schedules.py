@@ -16,6 +16,12 @@ job, and wants a different tool.
 RESUMING STARTS FROM NOW. A schedule paused for a week does not come
 back owing the week: its next time is worked out from the moment it is
 resumed, and its count of failures starts again.
+
+A SCHEDULE IN THEIR OLD ZONE FOLLOWS THEM. A person who moves (Dvara's
+``zone`` changed) wants "every morning at 8" at 8 where they are now.
+``move_zone`` moves each of their schedules that was in the zone they
+left, and works its next time out again; one in any other zone was put
+there on purpose ("at 9:30 New York time") and stays.
 """
 
 from __future__ import annotations
@@ -302,6 +308,40 @@ def remove(store: Store, schedule_id: str, owner: str | None = None) -> Schedule
     schedule = find(store, schedule_id, owner)
     store.delete(schedule.id)
     return schedule
+
+
+def move_zone(store: Store, owner: str, to: str, *, was: str,
+              now: datetime | None = None) -> list[Schedule]:
+    """``owner``'s schedules in zone ``was`` moved to ``to``, each next
+    time worked out again; "" for either is this machine's default (what
+    a schedule made with no zone was given). The ones moved."""
+    now = now or now_utc()
+    old, new = _zone_name(was), _zone_name(to)
+    if old == new:
+        return []
+    moved = []
+    for schedule in store.schedules():
+        if schedule.owner != owner or schedule.tz != old or schedule.state == "done":
+            continue
+        changes: dict = {"tz": new}
+        if schedule.state == "active":
+            nxt = when_mod.parse(schedule.when, new).next_after(
+                now, anchor=from_iso(schedule.created_at))
+            if nxt is not None:
+                changes["next_at"] = iso(nxt)
+        store.update(schedule.id, **changes)
+        moved.append(store.get(schedule.id))
+    return moved
+
+
+def _zone_name(name: str) -> str:
+    name = (name or "").strip() or default_tz()
+    try:
+        ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError):
+        raise ScheduleError(f"{name!r} is not a time zone's name "
+                            "(like Europe/London)") from None
+    return name
 
 
 MAX_AHEAD_DAYS = 14

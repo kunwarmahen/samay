@@ -286,7 +286,11 @@ agent sends:
 
 Times are in your time zone (`--tz`, `$SAMAY_TZ`, `$TZ`, or this
 machine's; in a container `$TZ` is what knows yours),
-and "08:00" stays 08:00 when the clocks change. Nothing runs more often
+and "08:00" stays 08:00 when the clocks change. When someone moves,
+`samay zone asha --from America/New_York --to Europe/London` moves
+their schedules that were in the zone they left, so 08:00 is 08:00
+where they are now; one they put in another zone on purpose stays.
+Dvara does this itself when a person's `zone` changes. Nothing runs more often
 than every five minutes, however it's written. A mistake is refused
 before anything is saved, with what to write instead:
 
@@ -546,7 +550,7 @@ src/samay/
 ├── when.py       the 'when' form: checked, said back in words, the next times,
 │                 a five-minute floor, time zones that survive a clock change
 ├── store.py      the SQLite file: schedules (the promise) and runs (the receipt)
-├── schedules.py  add / pause / resume / allow / remove, the per-person cap,
+├── schedules.py  add / pause / resume / allow / remove / zone, the per-person cap,
 │                 preview; a tool to allow checked as a grant (notes/07)
 ├── clock.py      the rules: missed, skipped, claimed before running, a run a
 │                 restart stopped carried on when recent and saved (notes/10), paused
@@ -594,7 +598,7 @@ src/samay/
 ## Status
 
 The clock, the records, the rules above, all four roads, the page and the
-agent's tools all work, and are covered by 244 tests. The API is not
+agent's tools all work, and are covered by 252 tests. The API is not
 stable.
 
 Not here yet:
