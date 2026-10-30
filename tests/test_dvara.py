@@ -118,6 +118,12 @@ class TestTheRun:
         assert body["allow_tools"] == ["browser_*"]
         assert body["thread"].startswith("samay-abc123-")
         assert body["text"] == "check my mail"
+        assert body["if_late"] == "send"
+
+    def test_a_schedule_that_tells_nobody_has_a_late_answer_kept(self, dvara):
+        runner = DvaraRunner(Dvara(dvara.url, TOKEN))
+        runner.run(schedule(notify="never"), "p")
+        assert dvara.seen[-1][2]["if_late"] == "keep"
 
     def test_a_slash_word_goes_alone_not_in_the_runs_framing(self, dvara):
         runner = DvaraRunner(Dvara(dvara.url, TOKEN))
@@ -169,6 +175,7 @@ class TestTheRun:
             schedule(time_limit=1, wait=0), "p")
         assert time.monotonic() - started < 3
         assert result.timed_out and "may still finish" in result.detail
+        assert "sent to you when it does" in result.detail
 
     def test_waiting_for_a_yes_is_not_the_time_limits_to_spend(self, dvara):
         # a turn that stops for a yes no one gives for its whole `wait`

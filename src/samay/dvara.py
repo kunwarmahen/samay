@@ -165,7 +165,10 @@ class DvaraRunner:
                 # so Dvara's page labels the turn as Samay's
                 "came_by": "samay",
                 "allow_tools": list(schedule.allow_tools),
-                "wait": schedule.wait * 60}
+                "wait": schedule.wait * 60,
+                # if the time limit runs out first, Dvara sends the answer
+                # itself when it comes -- unless this schedule tells nobody
+                "if_late": "keep" if schedule.notify == "never" else "send"}
         if job is not None and job.carry:
             body["carry_on"] = True
         # THE WAITING IS NOT THE WORK. Any run may stop for a yes, and its
@@ -186,7 +189,10 @@ class DvaraRunner:
                 ok=False, timed_out=True, stop_reason="timed_out",
                 detail=(f"no answer from dvara within {limit}s (the time limit, "
                         f"{schedule.time_limit}s, and {schedule.wait} min for its "
-                        "questions); the turn may still finish there (dvara runs). "
+                        "questions); the turn may still finish there (dvara runs)"
+                        + ("" if schedule.notify == "never" else
+                           ", and its answer is sent to you when it does")
+                        + ". "
                         f"To give it longer: samay limits {schedule.id} "
                         "--time-limit SECONDS, or ask your agent"))
         except DvaraError as exc:

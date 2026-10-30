@@ -164,7 +164,8 @@ above.
   processes (Dvara's note 07), and the channels already live in Dvara.
 * **Cancelling a turn that runs past the time limit.** Samay stops
   waiting and records `timed_out`, but the turn may still finish in
-  Dvara, and the detail says so. A cancel endpoint would let one
+  Dvara, and the detail says so. Its answer then reaches the person
+  from Dvara ([notes/15](15-a-late-answer-still-arrives.md)). A cancel endpoint would let one
   program stop another person's turn. That's a bigger decision than a
   timeout.
 * **Durable notices.** See above: Samay's run log is the record.

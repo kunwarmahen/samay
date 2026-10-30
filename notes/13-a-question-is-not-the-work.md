@@ -66,8 +66,10 @@ second spent waiting for a yes. The brief reached its person.
 
 ## What was deliberately not built
 
-* **Collecting the answer after a timeout.** The turn that finishes in
-  Dvara after Samay gave up is still lost to the person. Asking Dvara
-  for it later (by its thread) would fix that for good, but it is a
-  second call path and a second record of the same run. A limit that
-  fits the work comes first.
+* ~~**The answer of a turn that finishes after Samay gave up.**~~ Dvara
+  sends it to the person now: Samay says `if_late: send` on every
+  schedule that tells its person anything, and Dvara sends the answer
+  if Samay has hung up by the time the turn ends (Dvara's notes/76;
+  [notes/15](15-a-late-answer-still-arrives.md)). Samay's logbook still
+  says `timed_out`: asking Dvara for the run later would be a second
+  call path and a second record of one run.
