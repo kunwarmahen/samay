@@ -14,7 +14,11 @@ samay limits 713aefd8 --time-limit 1800
 `--wait MINUTES` changes the time its questions may wait, in the same
 command. Both apply from the next run.
 
-## The agent has it too
+## On the page, and from the agent
+
+Each schedule on Samay's page has a **Time: 10 min** button next to
+Pause. It asks how many minutes of work each run gets and sends
+`POST /api/schedules/ID/limits {time_limit}`, which takes `wait` too.
 
 `give_schedule_time` does the same from a chat, for the person's own
 schedules: "the morning brief keeps coming back too long, give it
@@ -41,5 +45,6 @@ work, 1 to 240 minutes for questions, checked in one place
   by itself. A run that never ends would then be given an hour every
   morning. More time is the person's call, or their agent's when they
   ask.
-* **A box on Samay's page.** The page sets a limit when a schedule is
-  made; changing it later is the command or the chat for now.
+* ~~**A box on Samay's page.**~~ The **Time** button, above. The wait
+  for questions is still the command, the chat or the API: a page
+  button for a number most people never change would be clutter.

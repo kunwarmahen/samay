@@ -161,6 +161,16 @@ class TestWhatThePageDoes:
         assert call(site, "DELETE", f"/api/schedules/{card['id']}")[0] == 200
         assert call(site, "GET", f"/api/schedules/{card['id']}")[0] == 404
 
+    def test_a_schedule_is_given_more_time_from_the_page(self, site):
+        card = add(site)
+        path = f"/api/schedules/{card['id']}/limits"
+        status, body = call(site, "POST", path, {"time_limit": 1800})
+        assert status == 200 and body["time_limit"] == 1800
+        assert call(site, "POST", path, {"wait": 5})[1]["wait"] == 5
+        status, body = call(site, "POST", path, {"time_limit": 5})
+        assert status == 400 and "between" in body["detail"]
+        assert call(site, "POST", path, {})[0] == 400
+
     def test_run_now_answers_at_once_and_twice_is_a_conflict(self, site):
         card = add(site)
         started = time.monotonic()

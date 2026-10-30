@@ -587,6 +587,16 @@ details.more[open] summary { margin-bottom: 12px; }
     if (card.state !== "done") op("Run now", () => api("POST", `schedules/${card.id}/run`));
     if (card.state === "active") op("Pause", () => api("POST", `schedules/${card.id}/pause`));
     if (card.state === "paused") op("Resume", () => api("POST", `schedules/${card.id}/resume`));
+    // a limit is a guess made before the first run; a run that keeps
+    // ending "too long" is given more here, from its next run
+    if (card.state !== "done") op(`Time: ${Math.round(card.time_limit / 60)} min`, async () => {
+      const said = prompt("Minutes of work each run gets (1 to 60). " +
+        `Its questions get ${card.wait} min on top.`, Math.round(card.time_limit / 60));
+      if (said === null || said.trim() === "") return;
+      const minutes = Number(said);
+      if (!Number.isInteger(minutes)) throw new Error("say a whole number of minutes");
+      await api("POST", `schedules/${card.id}/limits`, { time_limit: minutes * 60 });
+    });
     op(open.has(card.id) ? "Hide history" : "History", async () => {
       if (open.has(card.id)) open.delete(card.id); else open.add(card.id);
     });

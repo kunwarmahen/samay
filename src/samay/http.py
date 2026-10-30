@@ -16,6 +16,7 @@ drawn from (which any other program may use too):
     POST   /api/preview      {when, tz}   the sentence, before anything is saved
     POST   /api/schedules    {prompt, when, ...}
     POST   /api/schedules/ID/pause | /resume | /run
+    POST   /api/schedules/ID/limits  {time_limit?, wait?}  from its next run
     DELETE /api/schedules/ID
 
 A TOKEN, ALWAYS. Every ``/api`` call carries ``Authorization: Bearer``.
@@ -182,6 +183,14 @@ class Api:
             if method == "POST" and action == "resume":
                 return 200, schedules.card(
                     schedules.resume(self.store, schedule.id), self.store)
+            if method == "POST" and action == "limits":
+                time_limit, wait = body.get("time_limit"), body.get("wait")
+                return 200, schedules.card(schedules.set_limits(
+                    self.store, schedule.id,
+                    time_limit=None if time_limit in (None, "")
+                    else _int(time_limit, "time_limit"),
+                    wait=None if wait in (None, "") else _int(wait, "wait")),
+                    self.store)
             if method == "POST" and action == "run":
                 try:
                     self.clock.start_now(schedule.id)
