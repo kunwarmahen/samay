@@ -166,9 +166,18 @@ class TestTheRun:
         dvara.delay = 3
         started = time.monotonic()
         result = DvaraRunner(Dvara(dvara.url, TOKEN)).run(
-            schedule(time_limit=1), "p")
+            schedule(time_limit=1, wait=0), "p")
         assert time.monotonic() - started < 3
         assert result.timed_out and "may still finish" in result.detail
+
+    def test_waiting_for_a_yes_is_not_the_time_limits_to_spend(self, dvara):
+        # a turn that stops for a yes no one gives for its whole `wait`
+        # still has its time limit for the work (a morning brief whose
+        # question used up all ten minutes was lost, 2026-10-30)
+        dvara.delay = 1.5
+        result = DvaraRunner(Dvara(dvara.url, TOKEN)).run(
+            schedule(time_limit=1, wait=0.05), "p")   # 1s + 3s of waiting
+        assert result.ok and not result.timed_out
 
     def test_a_local_schedule_runs_as_the_configured_person(self, dvara):
         runner = DvaraRunner(Dvara(dvara.url, TOKEN, actor="owner"))

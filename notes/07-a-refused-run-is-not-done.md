@@ -44,6 +44,8 @@ may wait as long as the schedule's `wait` (30 minutes by default) for
 the whole run, the same field the Dvara road uses (note 06). The run's
 time limit grows by that much, so ten minutes of work doesn't get
 killed while its person reads the question. Silence is a refusal.
+The Dvara road does the same for every run, not only a phone's
+([notes/13](13-a-question-is-not-the-work.md)).
 
 With no Dvara, nothing changes: nobody to ask, and the variables are
 removed from what Yantra inherits, so a leftover in the clock's

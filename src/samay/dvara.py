@@ -168,23 +168,25 @@ class DvaraRunner:
                 "wait": schedule.wait * 60}
         if job is not None and job.carry:
             body["carry_on"] = True
-        limit = schedule.time_limit
+        # THE WAITING IS NOT THE WORK. Any run may stop for a yes, and its
+        # questions wait `wait` in all (Dvara holds them to that): none of
+        # it is the time limit's to spend, or the person's late yes finds
+        # a run Samay already gave up on.
+        limit = schedule.time_limit + schedule.wait * 60
         if schedule.phone:
             body.update(phone=schedule.phone_name or True,
                         phone_steps=list(schedule.phone_steps))
-            # THE WAITING IS NOT THE WORK. A phone run may wait for a phone
-            # in someone's hand (up to PHONE_IN_USE), for its person to
-            # unlock it (`wait`), and for its questions (`wait`, in all):
-            # none of that is the time limit's to spend.
-            limit += PHONE_IN_USE + 2 * schedule.wait * 60
+            # and a phone run may also wait for a phone in someone's hand
+            # (up to PHONE_IN_USE) and for its person to unlock it (`wait`)
+            limit += PHONE_IN_USE + schedule.wait * 60
         try:
             reply = self.dvara.call("POST", "/message", body, timeout=limit)
         except TimeoutError:
             return RunResult(
                 ok=False, timed_out=True, stop_reason="timed_out",
-                detail=(f"no answer from dvara within {limit}s, "
-                        "the time limit for this schedule; the turn may still "
-                        "finish there (dvara runs)"))
+                detail=(f"no answer from dvara within {limit}s (the time limit, "
+                        f"{schedule.time_limit}s, and {schedule.wait} min for its "
+                        "questions); the turn may still finish there (dvara runs)"))
         except DvaraError as exc:
             return RunResult(ok=False, stop_reason="error", detail=str(exc))
         held = reply.get("held")

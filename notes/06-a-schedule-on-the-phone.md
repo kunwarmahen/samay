@@ -47,8 +47,9 @@ hands the steps to Sparsh, and gives questions the schedule's wait.
 **THE WAITING IS NOT THE WORK.** A phone run may wait for a phone in
 someone's hand (up to ten minutes), for its person to unlock it, and
 for its questions. None of that is the time limit's to spend: the call
-to Dvara gets `time_limit + 10 min + 2 × wait`. Only a phone schedule
-gets the longer allowance; any other run times out as before.
+to Dvara gets `time_limit + 10 min + 2 × wait`. Any other run on the
+Dvara road gets `time_limit + wait`: it can stop for a yes too
+([notes/13](13-a-question-is-not-the-work.md)).
 
 **A SKIP IS NOT A FAILURE.** A run Dvara skipped (the phone was in use,
 or stayed locked after the person was asked) is `skipped` in the
