@@ -34,16 +34,17 @@ wait`, as before). The timeout sentence names both parts:
 
 ```
 no answer from dvara within 2400s (the time limit, 600s, and 30 min
-for its questions); the turn may still finish there (dvara runs)
+for its questions); the turn may still finish there (dvara runs). To
+give it longer: samay limits 713aefd8 --time-limit SECONDS, or ask
+your agent
 ```
 
 **TEN MINUTES IS A CLOUD MODEL'S TEN MINUTES.** Even without the
 question, the first morning was about nineteen minutes of real work:
 `qwen3.8-64k:latest` on this machine, reading mail, calendar, three
 brokerage accounts and Notion through 34 tool calls. A limit is the
-schedule's own, so this one was raised to 30 minutes. There is no
-command to change a schedule's limit after it is made yet. The agent
-that makes a schedule can't set it either.
+schedule's own, so this one was raised to 30 minutes, with `samay
+limits` ([notes/14](14-more-time-for-a-run.md)).
 
 The question itself was the agent's copy, not Samay. The installed
 `morning` agent had lost the `[tools] allow` list its example ships

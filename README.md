@@ -130,6 +130,7 @@ samay run-now 67cad6f8     # once, now, here -- and wait for it
 samay pause 67cad6f8
 samay resume 67cad6f8      # its next time is worked out from now
 samay allow 67cad6f8 'web_fetch'   # one more tool it may use unasked, next run on
+samay limits 67cad6f8 --time-limit 1800   # runs came back "too long": 30 min of work
 samay rm 67cad6f8          # the schedule and its history
 ```
 
@@ -226,10 +227,11 @@ samay mcp --for local --agent ~/agents/reader    # what a harness starts
 | `list_schedules`, `schedule_runs` | what this person has set up, and how it went |
 | `create_schedule` | saves one; the prompt is written for the agent's future self |
 | `allow_for_schedule` | lets a schedule use a tool it was refused, from its next run |
+| `give_schedule_time` | gives a schedule's runs more (or less) time, from its next run, when one came back *too long* |
 | `pause_schedule`, `resume_schedule`, `delete_schedule` | |
 
 **The agent proposes and you accept.** The three reading tools are
-marked read-only and the five that change something aren't, so a
+marked read-only and the six that change something aren't, so a
 harness that honours the mark (Yantra does) asks you before every
 create, pause, resume, allow and delete. In the browser that's a card, at the
 terminal a y/N, on Telegram two buttons. The tools tell the model to
@@ -335,7 +337,7 @@ If a schedule is paused (see below), you're always told, whatever
 | A site needs you to sign in again, or the agent had a question | `needs_person` | **pauses the schedule** and tells you what's needed |
 | It finished, but a tool it reached for wasn't allowed (or you said no) | `refused` | tells you what wasn't allowed and how to allow it (whatever `--notify` says, unless `never`); the schedule goes on |
 | It failed 3 times in a row | `failed` | **pauses the schedule** and tells you |
-| It ran past its time limit (default 10 minutes, plus the schedule's `wait` when it can ask) | `timed_out` | stops it, browser and all; on the Dvara road the turn may still finish there |
+| It ran past its time limit (default 10 minutes, plus the schedule's `wait` when it can ask) | `timed_out` | stops it, browser and all; on the Dvara road the turn may still finish there. Give it longer with `samay limits ID --time-limit SECONDS`, or ask your agent |
 | Samay stopped while it ran, and came back soon (within the schedule's grace) | the run's own outcome, its detail *carried on after a restart* | **carries it on from its last step**: Yantra saved every step (`--job`), or Dvara did (`carry_on`); nothing done is done again, and the agent looks again before it acts ([notes/10](notes/10-a-run-a-restart-stopped.md)) |
 | Samay stopped while it ran, longer ago, or with nothing saved | `interrupted` | doesn't run it again |
 

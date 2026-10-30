@@ -48,7 +48,8 @@ class TestWhatAHarnessReliesOn:
         assert hints == {"preview_schedule": True, "list_schedules": True,
                          "schedule_runs": True, "create_schedule": False,
                          "pause_schedule": False, "resume_schedule": False,
-                         "allow_for_schedule": False, "delete_schedule": False}
+                         "allow_for_schedule": False, "give_schedule_time": False,
+                         "delete_schedule": False}
 
     def test_only_delete_is_destructive(self):
         destroys = {t["name"] for t in TOOLS
@@ -99,7 +100,7 @@ class TestTheTools:
                                   owner="priya")
         mine = tools_for(store, tmp_path, person="mahen")
         for name in ("pause_schedule", "resume_schedule", "delete_schedule",
-                     "schedule_runs"):
+                     "schedule_runs", "give_schedule_time"):
             err, said = call(mine, name, id=theirs.id)
             assert err and "no schedule" in said, name
         assert call(mine, "list_schedules")[1] == "No schedules yet."
@@ -115,6 +116,22 @@ class TestTheTools:
         assert "every 2 hours" in call(tools, "list_schedules")[1]
         assert call(tools, "delete_schedule", id=sid)[1].startswith(f"Deleted {sid}")
         assert store.schedules() == []
+
+    def test_a_schedule_that_came_back_too_long_is_given_more_time(
+            self, store, tmp_path):
+        tools = tools_for(store, tmp_path)
+        call(tools, "create_schedule", prompt="brief", when={"at": "07:30"},
+             time_limit_minutes=20)
+        sid = store.schedules()[0].id
+        assert store.get(sid).time_limit == 1200
+        err, said = call(tools, "give_schedule_time", id=sid, time_limit_minutes=30)
+        assert not err and said == (f"{sid} runs get 30 min of work, and 30 min "
+                                    "for their questions, from its next run.")
+        assert store.get(sid).time_limit == 1800 and store.get(sid).wait == 30
+        err, said = call(tools, "give_schedule_time", id=sid, time_limit_minutes=90)
+        assert err and "between 30 and 3600 seconds" in said
+        err, said = call(tools, "give_schedule_time", id=sid)
+        assert err and "say what to change" in said
 
     def test_an_unknown_tool_is_an_error(self, store, tmp_path):
         err, said = call(tools_for(store, tmp_path), "_mine", id="x")
@@ -165,7 +182,7 @@ class TestTheProtocol:
             env={"SAMAY_TZ": "UTC", "PATH": "/usr/bin:/bin"})
         replies = [json.loads(line) for line in done.stdout.splitlines()]
         assert [r["id"] for r in replies] == [1, 2, 3]
-        assert len(replies[1]["result"]["tools"]) == 8
+        assert len(replies[1]["result"]["tools"]) == 9
         assert replies[2]["result"]["content"][0]["text"].startswith("Saved ")
         assert len(Store(tmp_path / "samay.sqlite3").schedules()) == 1
 

@@ -380,7 +380,8 @@ class DirectRunner:
             result.timed_out = True
             result.stop_reason = "timed_out"
             result.detail = (f"stopped after {limit}s, the "
-                             "time limit for this schedule")
+                             "time limit for this schedule. To give it longer: "
+                             f"samay limits {schedule.id} --time-limit SECONDS")
             return result
         return _read(out, err)
 
@@ -471,7 +472,9 @@ class KeptTestsRunner:
             _kill(proc)
             return RunResult(ok=False, stop_reason="timed_out", timed_out=True,
                              detail=f"stopped after {schedule.time_limit}s, the "
-                                    "time limit for this schedule")
+                                    "time limit for this schedule. To give it "
+                                    f"longer: samay limits {schedule.id} "
+                                    "--time-limit SECONDS")
         return read_tests(out, err)
 
 

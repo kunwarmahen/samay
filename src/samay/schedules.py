@@ -266,6 +266,43 @@ def allow(store: Store, schedule_id: str, allow_tools: list[str],
     return store.get(schedule.id)
 
 
+def set_limits(store: Store, schedule_id: str, *, time_limit: int | None = None,
+               wait: int | None = None, owner: str | None = None) -> Schedule:
+    """Give a schedule's runs a different time limit (seconds) or a
+    different wait for their questions (minutes), from its next run.
+
+    A limit is a guess made before the first run: ten minutes is a cloud
+    model's ten minutes, and a local one reading five accounts may need
+    thirty. The answer to a run that came back `timed_out` is more time,
+    not a new schedule (notes/14)."""
+    schedule = find(store, schedule_id, owner)
+    changes: dict = {}
+    if time_limit is not None:
+        if not MIN_TIME_LIMIT <= int(time_limit) <= MAX_TIME_LIMIT:
+            raise ScheduleError(f"time limit must be between {MIN_TIME_LIMIT} "
+                                f"and {MAX_TIME_LIMIT} seconds, got {time_limit}")
+        changes["time_limit"] = int(time_limit)
+    if wait is not None:
+        if not MIN_WAIT <= int(wait) <= MAX_WAIT:
+            raise ScheduleError(f"wait must be between {MIN_WAIT} and {MAX_WAIT} "
+                                f"minutes, got {wait}")
+        changes["wait"] = int(wait)
+    if not changes:
+        raise ScheduleError("say what to change: a time limit, a wait, or both")
+    store.update(schedule.id, **changes)
+    return store.get(schedule.id)
+
+
+def limits_sentence(schedule: Schedule) -> str:
+    """How long its runs get, in words."""
+    return (f"{schedule.id} runs get {_span(schedule.time_limit)} of work, and "
+            f"{schedule.wait} min for their questions")
+
+
+def _span(seconds: int) -> str:
+    return f"{seconds // 60} min" if seconds % 60 == 0 else f"{seconds}s"
+
+
 def find(store: Store, schedule_id: str, owner: str | None = None) -> Schedule:
     """One schedule by id -- or by a unique start of one -- that this
     owner may touch (None: the owner of the service, who may touch all)."""

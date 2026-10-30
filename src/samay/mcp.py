@@ -70,6 +70,10 @@ _WHEN = {
     "type": "object",
 }
 
+_TIME_LIMIT = {"type": "integer", "minimum": 1, "maximum": 60,
+               "description": "Minutes a run's work may take (default 10). A job "
+               "that reads several accounts on a local model can need 30."}
+
 TOOLS: list[dict] = [
     {"name": "preview_schedule",
      "description": (
@@ -136,6 +140,7 @@ TOOLS: list[dict] = [
          "wait": {"type": "integer", "minimum": 1, "maximum": 240,
                   "description": "Minutes a question from a run may wait for the "
                   "person, in all (default 30); then it is refused."},
+         "time_limit_minutes": _TIME_LIMIT,
          "tz": {"type": "string"}},
          "required": ["prompt", "when"]},
      "annotations": {"readOnlyHint": False, "destructiveHint": False}},
@@ -159,6 +164,20 @@ TOOLS: list[dict] = [
          "id": {"type": "string"},
          "allow_tools": {"type": "array", "items": {"type": "string"}}},
          "required": ["id", "allow_tools"]},
+     "annotations": {"readOnlyHint": False, "destructiveHint": False}},
+    {"name": "give_schedule_time",
+     "description": (
+         "Give one of the person's schedules more (or less) time for its "
+         "runs, from its next run -- when a run came back timed_out (\"too "
+         "long\") and the person wants it to finish. The time for its "
+         "questions is separate and never comes out of the work's."),
+     "inputSchema": {"type": "object", "properties": {
+         "id": {"type": "string"},
+         "time_limit_minutes": _TIME_LIMIT,
+         "wait": {"type": "integer", "minimum": 1, "maximum": 240,
+                  "description": "Minutes its questions may wait for the person, "
+                  "in all."}},
+         "required": ["id"]},
      "annotations": {"readOnlyHint": False, "destructiveHint": False}},
     {"name": "delete_schedule",
      "description": "Remove a schedule and its history, for good.",
@@ -260,7 +279,9 @@ class Tools:
             allow_tools=[str(g) for g in allow], created_via="agent",
             dvara=self.dvara if self.runner == "dvara" else None,
             phone=name or works_phone, phone_steps=[str(s) for s in steps],
-            wait=_minutes(args.get("wait")))
+            wait=_minutes(args.get("wait")),
+            time_limit=_limit(args.get("time_limit_minutes"),
+                              schedules.DEFAULT_TIME_LIMIT))
         said = f"Saved {made.id}: {schedules.sentence(made)}."
         if serving(self.state) is None:
             said += (" Note: Samay's clock is not running on this machine, "
@@ -286,6 +307,14 @@ class Tools:
                 "it in this conversation." if schedule.state == "done" else "")
         return (f"{schedule.id} may now use without asking: "
                 f"{', '.join(schedule.allow_tools)}.{note}")
+
+    def _give_schedule_time(self, args: dict) -> str:
+        wait = args.get("wait")
+        schedule = schedules.set_limits(
+            self.store, self._mine(args).id,
+            time_limit=_limit(args.get("time_limit_minutes"), None),
+            wait=None if wait in (None, "") else _minutes(wait))
+        return schedules.limits_sentence(schedule) + ", from its next run."
 
     def _delete_schedule(self, args: dict) -> str:
         schedule = schedules.remove(self.store, self._mine(args).id)
@@ -365,3 +394,13 @@ def _minutes(value) -> int:
         return int(value)
     except (TypeError, ValueError):
         raise ToolFailed(f"wait is minutes, not {value!r}") from None
+
+
+def _limit(value, default: int | None) -> int | None:
+    """Minutes from the model, as the seconds a schedule keeps."""
+    if value in (None, ""):
+        return default
+    try:
+        return int(value) * 60
+    except (TypeError, ValueError):
+        raise ToolFailed(f"time_limit_minutes is minutes, not {value!r}") from None

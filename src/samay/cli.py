@@ -144,6 +144,15 @@ def build_parser() -> argparse.ArgumentParser:
                         "'call_service(domain=switch, entity_id=switch.lights_2)'")
     p.add_argument("--json", action="store_true", dest="json_out")
 
+    p = sub.add_parser("limits", help="give its runs more (or less) time, "
+                       "from its next run")
+    p.add_argument("id")
+    p.add_argument("--time-limit", type=int, metavar="SECONDS", dest="time_limit",
+                   help="how long the work may take (30 to 3600)")
+    p.add_argument("--wait", type=int, metavar="MINUTES",
+                   help="how long its questions may wait for the person, in all")
+    p.add_argument("--json", action="store_true", dest="json_out")
+
     p = sub.add_parser("runs", help="what happened, newest first")
     p.add_argument("id", nargs="?")
     p.add_argument("--limit", type=int, default=20)
@@ -347,6 +356,12 @@ def _dispatch(args, store: Store, state: Path) -> int:
         print(json.dumps(_card(schedule)) if args.json_out
               else f"{schedule.id} may now use without asking: "
                    f"{', '.join(schedule.allow_tools)}")
+        return 0
+    if cmd == "limits":
+        schedule = schedules.set_limits(store, schedule.id, time_limit=args.time_limit,
+                                        wait=args.wait)
+        print(json.dumps(_card(schedule)) if args.json_out
+              else schedules.limits_sentence(schedule))
         return 0
     if cmd == "rm":
         schedules.remove(store, schedule.id)

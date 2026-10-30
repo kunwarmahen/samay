@@ -186,7 +186,9 @@ class DvaraRunner:
                 ok=False, timed_out=True, stop_reason="timed_out",
                 detail=(f"no answer from dvara within {limit}s (the time limit, "
                         f"{schedule.time_limit}s, and {schedule.wait} min for its "
-                        "questions); the turn may still finish there (dvara runs)"))
+                        "questions); the turn may still finish there (dvara runs). "
+                        f"To give it longer: samay limits {schedule.id} "
+                        "--time-limit SECONDS, or ask your agent"))
         except DvaraError as exc:
             return RunResult(ok=False, stop_reason="error", detail=str(exc))
         held = reply.get("held")

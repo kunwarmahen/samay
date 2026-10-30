@@ -168,3 +168,19 @@ class TestMovingZone:
         assert Store(state / "samay.sqlite3").get(card["id"]).tz == "Asia/Tokyo"
         code, out, _ = run(capsys, "zone", "asha", "--from", "Asia/Tokyo", "--to", "Asia/Tokyo")
         assert "moved 0 schedules" in out
+
+
+class TestLimits:
+    def test_a_schedule_gets_more_time_from_its_next_run(self, state, capsys):
+        sid = add(capsys)["id"]
+        code, out, _ = run(capsys, "limits", sid, "--time-limit", "1800")
+        assert code == 0
+        assert out.strip() == f"{sid} runs get 30 min of work, and 30 min for their questions"
+        assert Store(state / "samay.sqlite3").get(sid).time_limit == 1800
+
+    def test_nothing_to_change_or_out_of_range_is_refused(self, state, capsys):
+        sid = add(capsys)["id"]
+        code, _, err = run(capsys, "limits", sid)
+        assert code == 2 and "say what to change" in err
+        code, _, err = run(capsys, "limits", sid, "--time-limit", "9000")
+        assert code == 2 and "between 30 and 3600" in err
