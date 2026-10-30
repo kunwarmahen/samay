@@ -422,6 +422,12 @@ is saved. Each run tells Dvara it came from Samay, so Dvara's page
 labels it `samay` beside Telegram, the web chat and the terminal, and
 its owner can filter by it.
 
+A schedule whose prompt is a slash word (`/doctor`) is sent to Dvara as
+that word alone, without the framing a model's run gets, since Dvara
+answers it itself; it's a run that went well unless Dvara refused it.
+That's how a person's own morning check works: Dvara's `/doctor every
+morning` makes one, and its run says only what's new, or `NOTHING NEW`.
+
 **Your kept tests, every night** (`--runner tests`). A conversation
 you kept as a test (Yantra's `--keep-test`, `/chats test`, the page's
 History, Dvara's `/keep test`) is replayed with the tools answering from
@@ -598,7 +604,7 @@ src/samay/
 ## Status
 
 The clock, the records, the rules above, all four roads, the page and the
-agent's tools all work, and are covered by 252 tests. The API is not
+agent's tools all work, and are covered by 254 tests. The API is not
 stable.
 
 Not here yet:

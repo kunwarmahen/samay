@@ -119,6 +119,20 @@ class TestTheRun:
         assert body["thread"].startswith("samay-abc123-")
         assert body["text"] == "check my mail"
 
+    def test_a_slash_word_goes_alone_not_in_the_runs_framing(self, dvara):
+        runner = DvaraRunner(Dvara(dvara.url, TOKEN))
+        runner.run(schedule(prompt=" /doctor "), "(A scheduled run -- ...)\n\n/doctor")
+        assert dvara.seen[-1][2]["text"] == "/doctor"
+
+    def test_a_word_dvara_answered_is_a_run_that_went_well(self, dvara):
+        runner = DvaraRunner(Dvara(dvara.url, TOKEN))
+        dvara.reply = {"ok": False, "stop_reason": "doctor", "text": "NOTHING NEW"}
+        assert runner.run(schedule(prompt="/doctor"), "x").ok
+        dvara.reply = {"ok": False, "stop_reason": "refused", "text": "not yours"}
+        assert not runner.run(schedule(prompt="/doctor"), "x").ok
+        dvara.reply = {"ok": False, "stop_reason": "doctor", "text": "a word"}
+        assert not runner.run(schedule(prompt="check my mail"), "x").ok   # not a word
+
     def test_every_run_is_a_fresh_conversation(self, dvara):
         runner = DvaraRunner(Dvara(dvara.url, TOKEN))
         runner.run(schedule(), "p")

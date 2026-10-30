@@ -24,6 +24,15 @@ to go on with the same one (``carry_on: true``); Dvara answers
 ``nothing`` when it has no stopped turn there, and the run stays
 interrupted.
 
+A WORD IS SENT AS A WORD. A schedule whose prompt is a slash word
+(``/doctor``: a person's morning check) goes to Dvara as that word
+alone. Dvara answers those words itself, with no model, and the run's
+framing ("A scheduled run -- ...") is written for a model; around a word
+it would only hide it. Its ``NOTHING NEW`` is quiet like any other. And
+a word Dvara answered is a run that went well: Dvara's ``ok`` means a
+model's turn ended, which a word never is, so only ``refused`` or
+``error`` makes it a failure.
+
 A FRESH CONVERSATION EVERY RUN. Each run is its own thread,
 ``samay-<schedule>-<time>``, so a schedule that has run four hundred
 times does not drag four hundred answers into its next prompt; what
@@ -147,9 +156,12 @@ class DvaraRunner:
                 "this schedule names nobody Dvara knows: add it with --as "
                 "ACTOR, or set SAMAY_DVARA_ACTOR"))
         job = JOB.get()
+        # A WORD IS SENT AS A WORD: Dvara answers /doctor with no model, so
+        # the run's framing (written for a model) would only hide the word
+        word = schedule.prompt.strip()
         body = {"actor": actor, "agent": schedule.agent,
                 "thread": f"samay-{schedule.id}-{job.id if job else int(time.time())}",
-                "text": prompt, "unattended": True,
+                "text": word if word.startswith("/") else prompt, "unattended": True,
                 # so Dvara's page labels the turn as Samay's
                 "came_by": "samay",
                 "allow_tools": list(schedule.allow_tools),
@@ -184,8 +196,10 @@ class DvaraRunner:
             # the phone was in use, or stayed locked: nothing was done
             return RunResult(ok=True, stop_reason="skipped", skipped=True,
                              detail=str(reply.get("text") or reply.get("detail") or ""))
+        answered = word.startswith("/") and reply.get("stop_reason") not in (
+            None, "", "refused", "error")
         return RunResult(
-            ok=bool(reply.get("ok")), text=str(reply.get("text") or ""),
+            ok=bool(reply.get("ok")) or answered, text=str(reply.get("text") or ""),
             stop_reason=str(reply.get("stop_reason") or ""),
             detail=str(reply.get("detail") or ""),
             cost_usd=float(reply.get("cost_usd") or 0.0),
