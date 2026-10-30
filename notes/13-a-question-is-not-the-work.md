@@ -51,6 +51,18 @@ with, so it had `bash`, and the local model reached for it each
 morning. The list was put back. A brief that only reads should have
 nothing to ask.
 
+## Live receipt
+
+The same schedule, run once with `samay run-now` after the limit and
+the tool list were changed, on `qwen3.8-64k:latest`:
+
+```
+Fri 30 Oct 10:23  ok            sent  To-do
+```
+
+Fourteen minutes from start to sent, 33 tool calls, no `bash`, no
+second spent waiting for a yes. The brief reached its person.
+
 ## What was deliberately not built
 
 * **Collecting the answer after a timeout.** The turn that finishes in
