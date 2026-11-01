@@ -67,6 +67,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 header { display: flex; align-items: flex-end; gap: 18px; flex-wrap: wrap; }
 .mark { font-family: var(--deva); font-size: 56px; line-height: .9;
         font-weight: 600; letter-spacing: -.01em; }
+.mark .logo { width: .9em; height: .9em; border-radius: 22%; vertical-align: -.06em; margin-right: .22em; }
 .mark small { display: block; font: 14px/1.4 var(--sans); color: var(--ink-3);
               margin-top: 10px; letter-spacing: 0; font-weight: 400; }
 .state-line { margin-left: auto; text-align: right; color: var(--ink-2);
@@ -235,7 +236,7 @@ details.more[open] summary { margin-bottom: 12px; }
 <body>
 <div class="wrap">
   <header>
-    <div class="mark" lang="hi">समय<small lang="en">samay — the appointed time</small></div>
+    <div class="mark" lang="hi"><img class="logo" src="favicon.svg" alt="">समय<small lang="en">samay — the appointed time</small></div>
     <div class="state-line" id="state">…</div>
   </header>
 
