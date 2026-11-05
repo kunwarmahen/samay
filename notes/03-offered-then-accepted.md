@@ -156,6 +156,18 @@ happened, hollow for what hasn't, so the two read apart without the
 colours. Each schedule has its own row with its name at the left, so a
 dot says whose run it was without hovering. **Week** stretches both
 halves to seven days, with the day's name in the middle of each day.
+
+**A DAY IS A DATE, NOT 24 HOURS.** The week's midnights are found by
+moving to the next calendar date and setting midnight on it, never by
+adding 24 hours and rounding back. The day the clocks go back is 25
+hours long: its midnight plus 24 hours is 11 pm the same day, which
+rounds back to the same midnight, and the strip looped forever. The
+page remembers Week, so every load froze before a button could answer,
+for the whole fortnight the change sat inside the window. Checked in
+America/New_York around both changes of 2026: fourteen midnights, none
+repeated. The day strip steps real hours, which no clock change can
+repeat.
+
 The API grew the two things the page needed and nothing else:
 `/api/runs?since=` and `/api/schedules?ahead=`.
 
