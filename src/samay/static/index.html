@@ -457,15 +457,19 @@ details.more[open] summary { margin-bottom: 12px; }
     // the day's name in the middle of its day.
     const wide = strip.clientWidth || 700, gap = span / wide;   // one pixel of time
     const every = wide < 420 ? 12 : 6;
-    const step = days === 1 ? 3600000 : 86400000;
+    // Week steps by the calendar, never by 24 hours: a day the clocks
+    // change is 23 or 25 hours long, and adding 24 hours then rounding back
+    // to midnight landed on the same midnight forever (Sunday 1 Nov 2026).
+    const next = days === 1
+      ? (t) => t + 3600000
+      : (t) => { const d = new Date(t); d.setDate(d.getDate() + 1); d.setHours(0, 0, 0, 0); return d.getTime(); };
     const first = new Date(from);
     if (days === 1) first.setMinutes(0, 0, 0); else first.setHours(0, 0, 0, 0);
     const hourOnly = new Intl.DateTimeFormat(undefined, { hour: "numeric" });
     const weekday = new Intl.DateTimeFormat(undefined, { weekday: "short" });
-    for (let t = first.getTime() + step; t < from + span; t += step) {
+    for (let t = next(first.getTime()); t < from + span; t = next(t)) {
       const d = new Date(t);
-      if (days === 7) d.setHours(0, 0, 0, 0);   // a DST day is 23 or 25 hours
-      const x = d.getTime();
+      const x = t;
       const major = days === 7 || d.getHours() % 6 === 0;
       const named = days === 7 ? x + 43200000 : x;
       const line = el("div", "line" + (major ? " major" : ""));
@@ -481,7 +485,6 @@ details.more[open] summary { margin-bottom: 12px; }
         label.style.left = at(named);
         field.append(label);
       }
-      if (days === 7) t = x;
     }
 
     let count = 0;
