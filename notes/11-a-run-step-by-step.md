@@ -7,7 +7,8 @@ ledger.
 
 Each run on Samay's page now has a **Steps** button in its details. It
 shows the run's tools in order: what each was given, what came back,
-when, how long it ran, who said yes, and any picture a tool returned.
+when, how long it ran, how long the model thought before asking for
+it, who said yes, and any picture a tool returned.
 It's the same `yantra.steps.v1` that Yantra's and Dvara's pages draw
 (Yantra's note 145).
 

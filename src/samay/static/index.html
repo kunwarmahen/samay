@@ -643,6 +643,12 @@ details.more[open] summary { margin-bottom: 12px; }
         if (meta.length) body.append(el("div", "meta", meta.join(". ") + "."));
         // what it did, step by step (yantra.steps.v1)
         const took = (n) => (n == null ? "" : n < 0.001 ? "<1ms" : n < 1 ? `${Math.round(n * 1000)}ms` : `${n.toFixed(1)}s`);
+        const thoughtWords = (m) => {
+          if (!m || m.thought == null) return "";
+          const t = [m.read ? `${m.read.toLocaleString()} read` : "",
+                     m.wrote ? `${m.wrote.toLocaleString()} written` : ""].filter(Boolean);
+          return `thought ${took(m.thought)}` + (t.length ? ` (${t.join(", ")})` : "");
+        };
         const stepsBtn = el("button", "btn link", "Steps");
         stepsBtn.type = "button";
         const stepsBox = el("div", "steps");
@@ -650,9 +656,11 @@ details.more[open] summary { margin-bottom: 12px; }
           if (stepsBox.childElementCount) { stepsBox.replaceChildren(); return; }
           try {
             const v = await api("GET", `runs/${encodeURIComponent(run.id)}/steps`);
+            if (v.model_calls && v.thinking != null) stepsBox.append(el("div", "meta",
+              `The model: ${took(v.thinking)} over ${v.model_calls} call${v.model_calls > 1 ? "s" : ""}.`));
             if (!v.steps.length) stepsBox.append(el("div", "meta", "No tools: it answered from what it knew."));
             v.steps.forEach((s) => {
-              const bits = [s.at ? new Date(s.at).toLocaleTimeString() : "",
+              const bits = [s.at ? new Date(s.at).toLocaleTimeString() : "", thoughtWords(s),
                 s.answered_by ? `asked ${s.answered_by}, ${took(s.waited)}` : "",
                 s.ran != null ? `ran ${took(s.ran)}` : "",
                 s.refused ? `refused (${s.refused})` : "",
@@ -670,6 +678,11 @@ details.more[open] summary { margin-bottom: 12px; }
               });
               stepsBox.append(row);
             });
+            if (thoughtWords(v.answer_model)) {
+              const said = el("div", "step");
+              said.append(el("b", "", "answer"), el("span", "meta", " " + thoughtWords(v.answer_model)));
+              stepsBox.append(said);
+            }
           } catch (e) { stepsBox.replaceChildren(el("div", "meta", "No steps: " + e.message)); }
         });
         body.append(stepsBtn, stepsBox);

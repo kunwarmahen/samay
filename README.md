@@ -343,8 +343,8 @@ If a schedule is paused (see below), you're always told, whatever
 | Samay stopped while it ran, longer ago, or with nothing saved | `interrupted` | doesn't run it again |
 
 Each run's details on the page have a **Steps** button: the run's tools
-in order, what each was given and what came back, when, how long, and
-who said yes. A Dvara run's steps come from Dvara; a direct run's from its
+in order, what each was given and what came back, when, how long (the
+tool, and the model before it), and who said yes. A Dvara run's steps come from Dvara; a direct run's from its
 job file, kept 30 days ([notes/11](notes/11-a-run-step-by-step.md)).
 
 Tools a run reached for and wasn't allowed are listed under the run
