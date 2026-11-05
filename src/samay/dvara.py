@@ -51,7 +51,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 
-from samay.runners import JOB, RunResult
+from samay.runners import JOB, RunResult, label
 from samay.store import Schedule
 
 #: How long a call that is not a turn may take (the agent list, a notice).
@@ -164,6 +164,8 @@ class DvaraRunner:
                 "text": word if word.startswith("/") else prompt, "unattended": True,
                 # so Dvara's page labels the turn as Samay's
                 "came_by": "samay",
+                # and which schedule, for the phone's log (Sparsh's page)
+                "label": label(schedule),
                 "allow_tools": list(schedule.allow_tools),
                 "wait": schedule.wait * 60,
                 # if the time limit runs out first, Dvara sends the answer

@@ -533,6 +533,12 @@ person's chat. With nobody to ask it is skipped, and says why. One that
 grants the phone's tools without being a phone schedule is refused when
 it's made: it would wake up without them.
 
+Every step a schedule takes on a phone says which schedule asked, on
+Sparsh's page: *Samay: Tell me my battery and any… (bfaea182)*, the start
+of its prompt and its id. A run here gets it as `YANTRA_ASKED_BY`, which
+Yantra hands to Sparsh; on the Dvara road it goes as the turn's `label`,
+and Dvara adds the person.
+
 ## Settings
 
 | Variable | What |
@@ -587,7 +593,8 @@ src/samay/
 ├── dvara.py      the Dvara road: POST /message as the person, unattended, with
 │                 what they allowed ahead of time, its wait, and the phone
 │                 and its steps when it works one (notes/06), named as
-│                 Samay's (came_by); answers out through POST /notify.
+│                 Samay's (came_by) and which schedule (label, for the
+│                 phone's log); answers out through POST /notify.
 │                 Standard library only
 ├── http.py       the page and its JSON API, beside the clock in samay serve:
 │                 a token on every call, localhost by default

@@ -105,7 +105,7 @@ def fake_yantra(tmp_path):
     script.write_text(
         "import json, os\n"
         f"open({str(tmp_path / 'env.json')!r}, 'w').write(json.dumps("
-        "{k: v for k, v in os.environ.items() if k.startswith('YANTRA_ASK')}))\n"
+        "{k: v for k, v in os.environ.items() if k.startswith('YANTRA_ASK_')}))\n"
         f"print({json.dumps(json.dumps(data))})\n")
     return [sys.executable, str(script)]
 
@@ -189,3 +189,11 @@ class TestTheDirectRoadMayWorkThePhone:
             "allow_tools": ["mcp__sparsh__look", "mcp__sparsh__tap"]})
         made = store.schedules()[-1]
         assert made.phone and made.runner == "direct", text
+
+
+def test_a_direct_run_tells_yantra_which_schedule_asked(tmp_path):
+    # for the phone's log: Sparsh's page says who asked for each step
+    runner = DirectRunner(tmp_path / "work", command=fake_yantra(tmp_path))
+    said = runner.env(schedule(prompt="Tell me my phone's battery and any missed calls"))
+    assert said["YANTRA_ASKED_BY"] == "Samay: Tell me my phone's battery and any…  (abc123)" \
+        .replace("…  (", "… (")

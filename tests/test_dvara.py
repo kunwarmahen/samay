@@ -119,6 +119,8 @@ class TestTheRun:
         assert body["thread"].startswith("samay-abc123-")
         assert body["text"] == "check my mail"
         assert body["if_late"] == "send"
+        # which schedule asked, for the phone's log on Sparsh's page
+        assert body["came_by"] == "samay" and body["label"] == "p (abc123)"
 
     def test_a_schedule_that_tells_nobody_has_a_late_answer_kept(self, dvara):
         runner = DvaraRunner(Dvara(dvara.url, TOKEN))

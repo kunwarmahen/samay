@@ -104,6 +104,25 @@ KILL_GRACE = 5.0
 STDERR_TAIL = 15
 
 
+#: How much of a schedule's prompt names it on a phone's log.
+LABEL_WORDS = 40
+
+
+def label(schedule: Schedule) -> str:
+    """A schedule in a few words: its prompt's start and its id ("Tell me
+    my phone's battery (bfaea182)"), the way its page lists it."""
+    words = " ".join(schedule.prompt.split())
+    if len(words) > LABEL_WORDS:
+        words = words[:LABEL_WORDS].rsplit(" ", 1)[0] + "…"
+    return f"{words} ({schedule.id})" if words else schedule.id
+
+
+def asked_by(schedule: Schedule) -> str:
+    """How a phone's log names this schedule's steps ("Samay: Tell me my
+    phone's battery (bfaea182)"): Sparsh's page says who asked for each."""
+    return f"Samay: {label(schedule)}"
+
+
 @dataclass
 class RunResult:
     ok: bool
@@ -262,7 +281,8 @@ class DirectRunner:
         return [*argv, "--prompt", prompt]
 
     def env(self, schedule: Schedule) -> dict[str, str]:
-        env = {**os.environ, "YANTRA_UNATTENDED": "1"}
+        # who asked, for the phone's log (Yantra hands it to Sparsh)
+        env = {**os.environ, "YANTRA_UNATTENDED": "1", "YANTRA_ASKED_BY": asked_by(schedule)}
         if schedule.browser_profile:
             env["YANTRA_BROWSER_PROFILE"] = schedule.browser_profile
         whom = self.asks_whom(schedule)
