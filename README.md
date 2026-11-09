@@ -226,7 +226,7 @@ samay mcp --for local --agent ~/agents/reader    # what a harness starts
 |---|---|
 | `preview_schedule` | checks a *when* and says it back in words, with the next three times |
 | `list_schedules`, `schedule_runs` | what this person has set up, and how it went |
-| `create_schedule` | saves one; the prompt is written for the agent's future self |
+| `create_schedule` | saves one; the prompt is written for the agent's future self; `routine` instead of a prompt starts one of the person's Vidhi routines at each time ([notes/16](notes/16-a-routine-on-time.md)) |
 | `allow_for_schedule` | lets a schedule use a tool it was refused, from its next run |
 | `give_schedule_time` | gives a schedule's runs more (or less) time, from its next run, when one came back *too long* |
 | `pause_schedule`, `resume_schedule`, `delete_schedule` | |
@@ -637,7 +637,7 @@ src/samay/
 ## Status
 
 The clock, the records, the rules above, all four roads, the page and the
-agent's tools all work, and are covered by 254 tests. The API is not
+agent's tools all work, and are covered by 266 tests. The API is not
 stable.
 
 Not here yet:
