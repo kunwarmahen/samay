@@ -47,6 +47,8 @@ MIN_WAIT, MAX_WAIT, DEFAULT_WAIT = 1, 240, 30
 PHONE_STEP = re.compile(
     r"^\s*\S.*?\s+in\s+\S.*?\s+when the screen shows\s+\S.*$", re.IGNORECASE)
 LOCAL_OWNER = "local"
+#: A routine's name, as Vidhi takes it: the prompt of a ``vidhi`` schedule.
+ROUTINE_NAME = re.compile(r"[a-z][a-z0-9-]{1,39}")
 #: A tool the run may use unasked: a name or glob, maybe narrowed to fixed
 #: argument values -- ``call_service(domain=switch, entity_id=switch.lights_2)``.
 #: Yantra reads the form (its ``Grant``); checked here too, so a schedule
@@ -192,6 +194,14 @@ def create(store: Store, *, prompt: str, when: dict | str,
     if runner == "backup" and (agent or grants or phone or steps or browser_profile):
         raise ScheduleError("a backup schedule asks no agent anything: Sarathi makes "
                             "the backup, so it takes no agent, tools, phone or browser")
+    if runner == "vidhi":
+        if agent or grants or phone or steps or browser_profile:
+            raise ScheduleError("a routine schedule asks no agent anything: Vidhi runs "
+                                "the routine's own steps, so it takes no agent, tools, "
+                                "phone or browser")
+        if not ROUTINE_NAME.fullmatch(prompt):
+            raise ScheduleError(f"a routine schedule's prompt is the routine's name "
+                                f"(morning-brief), not {prompt[:40]!r}")
     if runner == "direct" and agent:
         package = Path(agent).expanduser().resolve()
         if not (package / "agent.toml").is_file():

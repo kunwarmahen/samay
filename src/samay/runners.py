@@ -527,6 +527,60 @@ class DoctorRunner:
         return RunResult(ok=True, text=doctor_said(data), stop_reason="doctor")
 
 
+class VidhiRunner:
+    """Start a routine (Vidhi): its name is the schedule's prompt.
+
+    STARTING IS ALL SAMAY DOES. ``vidhi start NAME --as PERSON --by
+    samay:ID`` only adds a run to Vidhi's list; Vidhi's own server runs
+    its steps -- side by side, asking the person when a step says so --
+    and tells the person what it found itself. So this run is quiet when
+    the routine started, and says why when it couldn't (paused, gone,
+    five runs already open)."""
+
+    def __init__(self, *, command: list[str] | None = None) -> None:
+        self.command = command
+
+    def run(self, schedule: Schedule, prompt: str) -> RunResult:
+        try:
+            command = self.command or _find_vidhi()
+        except RuntimeError as exc:
+            return RunResult(ok=False, stop_reason="error", detail=str(exc))
+        argv = [*command, "start", schedule.prompt.strip(), f"--as={schedule.owner}",
+                f"--by=samay:{schedule.id}", "--json"]
+        try:
+            done = subprocess.run(argv, capture_output=True, text=True, timeout=60,
+                                  stdin=subprocess.DEVNULL)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return RunResult(ok=False, stop_reason="error",
+                             detail=f"vidhi didn't answer: {type(exc).__name__}")
+        lines = (done.stdout or "").strip().splitlines()
+        try:
+            data = json.loads(lines[-1]) if lines else {}
+        except json.JSONDecodeError:
+            data = {}
+        if done.returncode != 0 or not data.get("id"):
+            said = data.get("error") or " ".join((done.stderr or "").split()).removeprefix(
+                "error: ") or "vidhi said nothing"
+            return RunResult(ok=False, stop_reason="error",
+                             detail=f"the routine didn't start: {said}")
+        return RunResult(ok=True, stop_reason="vidhi", text=(
+            f"NOTHING NEW\nStarted the routine {schedule.prompt.strip()} (run "
+            f"{data['id']}); Vidhi tells you what it finds."))
+
+
+def _find_vidhi() -> list[str]:
+    configured = os.environ.get("SAMAY_VIDHI", "").strip()
+    if configured:
+        return shlex.split(configured)
+    beside = Path(sys.executable).parent / "vidhi"
+    if beside.exists():
+        return [str(beside)]
+    found = shutil.which("vidhi")
+    if found:
+        return [found]
+    raise RuntimeError("cannot find vidhi: set SAMAY_VIDHI to the command that starts it")
+
+
 class BackupRunner:
     """Ask Sarathi to make a backup; quiet when it went well."""
 

@@ -113,6 +113,10 @@ TOOLS: list[dict] = [
          "is refused or asked about."),
      "inputSchema": {"type": "object", "properties": {
          "prompt": {"type": "string"},
+         "routine": {"type": "string", "description": (
+             "Instead of a prompt: the name of one of the person's routines "
+             "(Vidhi's list_routines), started at each time. The routine runs its "
+             "own steps and tells the person; leave prompt and allow_tools out.")},
          "when": _WHEN,
          "notify": {"type": "string", "enum": list(NOTIFY),
                     "description": "when_new (default): tell the person "
@@ -142,7 +146,7 @@ TOOLS: list[dict] = [
                   "person, in all (default 30); then it is refused."},
          "time_limit_minutes": _TIME_LIMIT,
          "tz": {"type": "string"}},
-         "required": ["prompt", "when"]},
+         "required": ["when"]},
      "annotations": {"readOnlyHint": False, "destructiveHint": False}},
     {"name": "pause_schedule",
      "description": "Stop a schedule running, keeping it to resume later.",
@@ -271,6 +275,16 @@ class Tools:
         if works_phone and not self.phone:
             raise ToolFailed("this chat has no phone to give a schedule; leave out "
                              "phone and phone_steps")
+        routine = str(args.get("routine") or "").strip()
+        if routine:
+            # One of the person's routines (Vidhi), started at each time: no
+            # agent turn, no tools -- Vidhi runs its steps and tells them.
+            made = schedules.create(
+                self.store, prompt=routine, when=_need(args, "when"),
+                tz=args.get("tz") or None, owner=self.person, runner="vidhi",
+                notify="when_new", created_via="agent")
+            return (f"Saved {made.id}: starts the routine {routine} -- "
+                    f"{schedules.sentence(made)}.")
         made = schedules.create(
             self.store, prompt=str(args.get("prompt") or ""),
             when=_need(args, "when"), tz=args.get("tz") or None,

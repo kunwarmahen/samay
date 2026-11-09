@@ -48,7 +48,8 @@ from samay import __version__, mcp, schedules, version
 from samay.clock import Clock
 from samay.dvara import Dvara, DvaraError, DvaraNotifier, DvaraRunner
 from samay.http import DEFAULT_PORT, Api, SamayServer, serve_token
-from samay.runners import BackupRunner, DirectRunner, DoctorRunner, KeptTestsRunner
+from samay.runners import (BackupRunner, DirectRunner, DoctorRunner, KeptTestsRunner,
+                           VidhiRunner)
 from samay.status import hold_clock, report, samay_command, serving
 from samay.store import NOTIFY, Run, Schedule, Store, from_iso
 
@@ -84,14 +85,16 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--agent", default="", metavar="DIR|NAME",
                    help="the agent package to run (default: plain Yantra); "
                         "on the Dvara road, an agent's name on its roster")
-    p.add_argument("--runner", choices=("direct", "dvara", "tests", "doctor", "backup"),
+    p.add_argument("--runner", choices=("direct", "dvara", "tests", "doctor", "backup",
+                                        "vidhi"),
                    default="direct",
                    help="run it here (default), or through Dvara as a person "
                         "-- their allowance, their rules, their Telegram; "
                         "'tests' replays every conversation kept as a test "
                         "(yantra --tests) instead of asking anything; 'doctor' "
                         "asks Sarathi's doctor what's wrong and says what's new; "
-                        "'backup' asks Sarathi to back the house up")
+                        "'backup' asks Sarathi to back the house up; 'vidhi' "
+                        "starts the routine named as the prompt (Vidhi runs it)")
     p.add_argument("--as", dest="as_actor", default="", metavar="ACTOR",
                    help="the Dvara-road person this runs as and is sent to "
                         "(default: $SAMAY_DVARA_ACTOR)")
@@ -399,7 +402,7 @@ def _runners(state: Path) -> dict:
     dvara = _dvara()
     runners: dict = {"direct": DirectRunner(state / "work", ask=dvara),
                      "tests": KeptTestsRunner(), "doctor": DoctorRunner(),
-                     "backup": BackupRunner()}
+                     "backup": BackupRunner(), "vidhi": VidhiRunner()}
     if dvara is not None:
         runners["dvara"] = DvaraRunner(dvara)
     return runners

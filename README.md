@@ -492,6 +492,24 @@ On Samay's page it's Run: *Sarathi's backup*, and Sarathi's Settings →
 Check has **Back up every night**. See
 [12 — the house, backed up every night](notes/12-the-house-backed-up-every-night.md).
 
+**A routine, started on time** (`--runner vidhi`). A routine is steps a
+person drew once in [Vidhi](https://github.com/kunwarmahen/vidhi): a
+morning brief that fetches three things side by side and writes them
+into one message. The schedule's prompt is the routine's name, and this
+road runs `vidhi start NAME --as PERSON --by samay:ID`, which only adds
+a run; Vidhi runs its steps and tells the person what it found.
+
+```bash
+samay add morning-brief --when "at 07:00" --runner vidhi
+```
+
+A routine that started is `NOTHING NEW` (*Started the routine
+morning-brief (run 60833e71); Vidhi tells you what it finds*), so you
+hear about the morning once, from the routine. One that couldn't start
+(paused, removed, five runs already open) is a failed run in Vidhi's
+words. An agent asks for one with `routine` on `create_schedule`. See
+[16 — a routine on time](notes/16-a-routine-on-time.md).
+
 `--wait MINUTES` (default 30) is how long, in all, a run's questions may
 wait for the person. One that outwaits it **lapses**: refused, and the
 run's record says what it was (`samay runs`: `asked, not answered: …`).
@@ -549,6 +567,7 @@ and Dvara adds the person.
 | `SAMAY_TESTS_PROVIDER`, `SAMAY_TESTS_MODEL` | what `--runner tests` replays the kept tests on (`ollama`, `qwen3.8:latest`); unset, Yantra's own default. Give both: a model alone is guessed a provider |
 | `SAMAY_DOCTOR_URL`, `SAMAY_DOCTOR_TOKEN` | where `--runner doctor` asks Sarathi's doctor (`…/api/doctor?news=1`), and the key that opens it; `sarathi up` sets both |
 | `SAMAY_BACKUP_URL`, `SAMAY_BACKUP_TOKEN` | where `--runner backup` asks Sarathi for a backup (`…/api/backup`), and the key that makes one; `sarathi up` sets both |
+| `SAMAY_VIDHI` | the command that starts Vidhi, for `--runner vidhi` (else `vidhi` beside Samay, else on PATH) |
 | `SAMAY_TZ` | the default time zone for new schedules (else `$TZ` when it names a zone, else this machine's) |
 | `SAMAY_DVARA_URL` | where Dvara's HTTP surface is; set, answers are sent and `--runner dvara` works |
 | `SAMAY_DVARA_TOKEN` | Dvara's `DVARA_TOKEN` |
@@ -589,7 +608,8 @@ src/samay/
 │                 is kept 30 days after, and its steps read by `yantra
 │                 --steps FILE --json` (notes/11); the backup road:
 │                 Sarathi's backup over HTTP, NOTHING NEW when it was all
-│                 made (notes/12)
+│                 made (notes/12); the routine road: `vidhi start`, as the
+│                 schedule's person, NOTHING NEW when it started (notes/16)
 ├── dvara.py      the Dvara road: POST /message as the person, unattended, with
 │                 what they allowed ahead of time, its wait, and the phone
 │                 and its steps when it works one (notes/06), named as
