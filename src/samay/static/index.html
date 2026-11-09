@@ -89,6 +89,17 @@ header { display: flex; align-items: flex-end; gap: 18px; flex-wrap: wrap; }
                 font-size: 13px; color: var(--ink-2); cursor: pointer; }
 .range button[aria-pressed="true"] { background: var(--gold-soft); color: var(--ink);
                                      font-weight: 600; }
+.zoom { display: inline-flex; gap: 4px; }
+.zoom button { border: 1px solid var(--line); background: var(--sheet); border-radius: 999px;
+               min-width: 28px; height: 26px; padding: 0 9px; font-size: 13px;
+               color: var(--ink-2); cursor: pointer; }
+.zoom button:hover { color: var(--ink); }
+.zoom .to-now[hidden] { display: none; }
+.day-bar { flex-wrap: wrap; }
+.strip .field { cursor: grab; touch-action: pan-y; user-select: none; }
+.strip.dragging .field { cursor: grabbing; }
+.strip:focus-visible { outline: 3px solid var(--focus); outline-offset: 4px; }
+.day .how { margin: 6px 0 0; font-size: 12px; color: var(--ink-3); }
 .chart { display: grid; grid-template-columns: minmax(0, 150px) minmax(0, 1fr);
          column-gap: 12px; }
 .chart .names { padding-top: 22px; }
@@ -247,11 +258,18 @@ details.more[open] summary { margin-bottom: 12px; }
         <button type="button" data-days="1" aria-pressed="true">Day</button>
         <button type="button" data-days="7" aria-pressed="false">Week</button>
       </div>
+      <div class="zoom" role="group" aria-label="Zoom and move">
+        <button type="button" id="zoom-in" title="Zoom in (+)" aria-label="Zoom in">+</button>
+        <button type="button" id="zoom-out" title="Zoom out (−)" aria-label="Zoom out">−</button>
+        <button type="button" id="to-now" class="to-now" title="Back to now (0)" hidden>Now</button>
+      </div>
     </div>
     <div class="chart">
       <div class="names" id="names"></div>
-      <div class="strip" id="strip" role="list"></div>
+      <div class="strip" id="strip" role="list" tabindex="0"
+           aria-label="Timeline: drag or use the arrow keys to move, + and − to zoom"></div>
     </div>
+    <p class="how">Drag the timeline to look further back or ahead; pinch, Ctrl and the wheel, or + and − to zoom.</p>
     <ul class="legend" aria-label="What the marks mean">
       <li style="--k: var(--ok)">done</li>
       <li style="--k: var(--quiet)">nothing new, missed or skipped</li>
@@ -409,29 +427,151 @@ details.more[open] summary { margin-bottom: 12px; }
   // -- the day ---------------------------------------------------------------
   // "now" in the middle: what ran in the last day (or week) on the left,
   // what will run in the next on the right, one row for each schedule.
+  // The window on screen: its middle and half its width. Day and Week
+  // are presets around now; dragging, pinching and the keys move off them.
+  const HOUR = 3600000, DAY = 86400000;
+  const MIN_HALF = 2 * HOUR, MAX_HALF = 14 * DAY;
+  // how far back the page may look, and ahead (Samay lists 14 days ahead)
+  const BACK = 60 * DAY, AHEAD = 14 * DAY;
   let days = 1;
   try { if (localStorage.getItem("samay-range") === "7") days = 7; } catch (_) {}
+  const view = { half: days * DAY, center: null };   // center null: follows now
+  const clampView = () => {
+    view.half = Math.min(MAX_HALF, Math.max(MIN_HALF, view.half));
+    if (view.center !== null) {
+      const now = Date.now();
+      view.center = Math.min(now + AHEAD, Math.max(now - BACK, view.center));
+      if (Math.abs(view.center - now) < view.half / 200) view.center = null;
+    }
+  };
+  const preset = () => view.center === null && (view.half === DAY || view.half === 7 * DAY);
+  const stamp = new Intl.DateTimeFormat(undefined, { weekday: "short", day: "numeric",
+                                                     month: "short", hour: "numeric", minute: "2-digit" });
   function drawRange() {
     document.querySelectorAll(".range button").forEach((b) =>
-      b.setAttribute("aria-pressed", String(Number(b.dataset.days) === days)));
-    $("day-title").textContent = days === 1 ? "The last day and the next" : "The last week and the next";
+      b.setAttribute("aria-pressed", String(view.center === null
+                                            && Number(b.dataset.days) * DAY === view.half)));
+    const center = view.center ?? Date.now();
+    $("day-title").textContent = view.center === null && view.half === DAY ? "The last day and the next"
+      : view.center === null && view.half === 7 * DAY ? "The last week and the next"
+      : `${stamp.format(new Date(center - view.half))} – ${stamp.format(new Date(center + view.half))}`;
+    $("to-now").hidden = preset();
   }
   document.querySelectorAll(".range button").forEach((b) => b.addEventListener("click", () => {
     days = Number(b.dataset.days);
     try { localStorage.setItem("samay-range", String(days)); } catch (_) {}
-    drawRange();
-    refresh().catch(showError);
+    view.half = days * DAY; view.center = null;
+    moved(true);
   }));
+
+  // Drawn at once from what is already fetched; fetched again for the new
+  // window once the moving stops.
+  let last = null, fetchSoon = 0;
+  function moved(fetchNow) {
+    clampView(); drawRange();
+    if (last) drawDay(last.schedules, last.runs);
+    clearTimeout(fetchSoon);
+    fetchSoon = setTimeout(() => refresh().catch(showError), fetchNow ? 0 : 300);
+  }
+  // zoom by ``factor`` keeping the time under ``x`` (0..1 across) still
+  function zoom(factor, x = 0.5) {
+    const center = view.center ?? Date.now();
+    const at = center - view.half + x * 2 * view.half;
+    const half = Math.min(MAX_HALF, Math.max(MIN_HALF, view.half * factor));
+    if (half === view.half) return;
+    const next = at - (x * 2 - 1) * half;
+    view.half = half;
+    view.center = Math.abs(next - Date.now()) < half / 200 && view.center === null ? null : next;
+    moved(false);
+  }
+  function pan(ms) { view.center = (view.center ?? Date.now()) + ms; moved(false); }
+  $("zoom-in").addEventListener("click", () => zoom(0.5));
+  $("zoom-out").addEventListener("click", () => zoom(2));
+  $("to-now").addEventListener("click", () => { view.center = null;
+    view.half = days * DAY; moved(true); });
+
+  (function interact() {
+    const strip = $("strip");
+    const width = () => (strip.querySelector(".field") || strip).getBoundingClientRect();
+    const pointers = new Map();
+    let drag = null, pinch = null, justDragged = false;
+    strip.addEventListener("pointerdown", (e) => {
+      if (!e.target.closest(".field")) return;
+      pointers.set(e.pointerId, e.clientX);
+      if (pointers.size === 1) {
+        drag = { x: e.clientX, center: view.center ?? Date.now(), moved: false, id: e.pointerId };
+      } else if (pointers.size === 2) {
+        const [a, b] = [...pointers.values()];
+        const box = width();
+        pinch = { gap: Math.abs(a - b) || 1, half: view.half,
+                  x: ((a + b) / 2 - box.left) / box.width };
+        drag = null;
+      }
+    });
+    strip.addEventListener("pointermove", (e) => {
+      if (!pointers.has(e.pointerId)) return;
+      pointers.set(e.pointerId, e.clientX);
+      if (pinch && pointers.size === 2) {
+        const [a, b] = [...pointers.values()];
+        const want = pinch.half * pinch.gap / (Math.abs(a - b) || 1);
+        zoom(want / view.half, pinch.x);
+        return;
+      }
+      if (!drag || e.pointerId !== drag.id) return;
+      const dx = e.clientX - drag.x;
+      if (!drag.moved && Math.abs(dx) < 5) return;
+      if (!drag.moved) { drag.moved = true; strip.classList.add("dragging");
+        try { strip.setPointerCapture(e.pointerId); } catch (_) {} }
+      view.center = drag.center - dx / width().width * 2 * view.half;
+      moved(false);
+    });
+    const up = (e) => {
+      pointers.delete(e.pointerId);
+      if (pointers.size < 2) pinch = null;
+      if (drag && drag.moved) { justDragged = true; setTimeout(() => { justDragged = false; }, 0); }
+      if (pointers.size === 0) { drag = null; strip.classList.remove("dragging"); }
+    };
+    strip.addEventListener("pointerup", up);
+    strip.addEventListener("pointercancel", up);
+    // a drag that ends on a mark doesn't open it
+    strip.addEventListener("click", (e) => { if (justDragged) { e.stopPropagation(); e.preventDefault(); } }, true);
+    strip.addEventListener("wheel", (e) => {
+      const box = width();
+      if (e.ctrlKey || e.metaKey) {           // a trackpad pinch arrives as this too
+        e.preventDefault();
+        zoom(Math.exp(e.deltaY * 0.01), (e.clientX - box.left) / box.width);
+      } else if (Math.abs(e.deltaX) > Math.abs(e.deltaY) || e.shiftKey) {
+        e.preventDefault();
+        const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+        pan(d / box.width * 2 * view.half);
+      }                                        // a plain wheel scrolls the page
+    }, { passive: false });
+    strip.addEventListener("keydown", (e) => {
+      const step = view.half / 2;
+      if (e.key === "ArrowLeft") pan(-step);
+      else if (e.key === "ArrowRight") pan(step);
+      else if (e.key === "+" || e.key === "=") zoom(0.5);
+      else if (e.key === "-" || e.key === "_") zoom(2);
+      else if (e.key === "0") { view.center = null; view.half = days * DAY; moved(true); }
+      else return;
+      e.preventDefault();
+    });
+  })();
   drawRange();
+  // the labels are spaced by the width: drawn again when it changes
+  let resized = 0;
+  addEventListener("resize", () => { clearTimeout(resized);
+    resized = setTimeout(() => { if (last) drawDay(last.schedules, last.runs); }, 120); });
 
   const short = (text, n) => text.length > n ? text.slice(0, n - 1) + "…" : text;
 
   function drawDay(cards, runs) {
     const strip = $("strip"), names = $("names");
     strip.replaceChildren(); names.replaceChildren();
-    strip.classList.toggle("week", days === 7);
-    const now = Date.now(), half = days * 86400000;
-    const from = now - half, span = 2 * half;
+    const now = Date.now(), half = view.half, center = view.center ?? now;
+    const from = center - half, span = 2 * half, to = from + span;
+    const byDay = half > 2 * DAY;                  // lines at midnights, not hours
+    strip.classList.toggle("week", byDay);
     const at = (t) => ((t - from) / span * 100) + "%";
 
     // Which schedules get a row: any that ran or will run in the window.
@@ -439,47 +579,67 @@ details.more[open] summary { margin-bottom: 12px; }
     const ran = new Map();
     runs.forEach((run) => {
       const t = new Date(run.started_at || run.due_at).getTime();
-      if (t < from || t > now || !byId.has(run.schedule)) return;
+      if (t < from || t > Math.min(now, to) || !byId.has(run.schedule)) return;
       if (!ran.has(run.schedule)) ran.set(run.schedule, []);
       ran.get(run.schedule).push({ t, run });
     });
     const rows = cards.filter((c) => ran.has(c.id)
-      || (c.upcoming || []).some((iso) => new Date(iso).getTime() <= now + half));
+      || (c.upcoming || []).some((iso) => { const t = new Date(iso).getTime();
+                                            return t >= Math.max(now, from) && t <= to; }));
 
-    strip.append(el("span", "side past", days === 1 ? "← last 24 hours" : "← last 7 days"),
-                 el("span", "side future", days === 1 ? "next 24 hours →" : "next 7 days →"),
-                 el("span", "now-label", "now"));
+    const following = view.center === null;
+    strip.append(el("span", "side past", following && half === DAY ? "← last 24 hours"
+                                         : following && half === 7 * DAY ? "← last 7 days" : "← earlier"),
+                 el("span", "side future", following && half === DAY ? "next 24 hours →"
+                                           : following && half === 7 * DAY ? "next 7 days →" : "later →"));
+    const nowIn = now >= from && now <= to;
+    if (nowIn) {
+      const label = el("span", "now-label", "now");
+      label.style.left = at(now);
+      strip.append(label);
+    }
     const field = el("div", "field");
-    field.append(el("div", "gone"));
+    const gone = el("div", "gone");
+    gone.style.width = Math.max(0, Math.min(100, (now - from) / span * 100)) + "%";
+    field.append(gone);
 
     // Day: a line every hour, darker and labelled every six (every twelve
     // on a phone; midnight by its day). Week: a line at each midnight, and
     // the day's name in the middle of its day.
     const wide = strip.clientWidth || 700, gap = span / wide;   // one pixel of time
-    const every = wide < 420 ? 12 : 6;
+    // a label every N hours, as room allows: 1, 2, 3, 6 or 12
+    const perHour = wide / (span / HOUR);
+    const every = [1, 2, 3, 6, 12].find((n) => n * perHour >= (wide < 420 ? 64 : 52)) || 12;
+    const lineEvery = perHour >= 6 ? 1 : perHour >= 2 ? 3 : 6;
     // Week steps by the calendar, never by 24 hours: a day the clocks
     // change is 23 or 25 hours long, and adding 24 hours then rounding back
     // to midnight landed on the same midnight forever (Sunday 1 Nov 2026).
-    const next = days === 1
-      ? (t) => t + 3600000
+    const next = !byDay
+      ? (t) => t + lineEvery * HOUR
       : (t) => { const d = new Date(t); d.setDate(d.getDate() + 1); d.setHours(0, 0, 0, 0); return d.getTime(); };
     const first = new Date(from);
-    if (days === 1) first.setMinutes(0, 0, 0); else first.setHours(0, 0, 0, 0);
+    if (!byDay) { first.setMinutes(0, 0, 0); first.setHours(first.getHours() - first.getHours() % lineEvery); }
+    else first.setHours(0, 0, 0, 0);
     const hourOnly = new Intl.DateTimeFormat(undefined, { hour: "numeric" });
     const weekday = new Intl.DateTimeFormat(undefined, { weekday: "short" });
+    const dated = new Intl.DateTimeFormat(undefined, { weekday: "short", day: "numeric" });
+    const dayWidth = wide / (span / DAY);
     for (let t = next(first.getTime()); t < from + span; t = next(t)) {
       const d = new Date(t);
       const x = t;
-      const major = days === 7 || d.getHours() % 6 === 0;
-      const named = days === 7 ? x + 43200000 : x;
+      const major = byDay || d.getHours() % every === 0;
+      const named = byDay ? x + 43200000 : x;
       const line = el("div", "line" + (major ? " major" : ""));
       line.style.left = at(x);
       field.append(line);
       // Kept clear of "now" in the middle and of both edges.
-      const clear = Math.abs(named - now) > gap * 16 && named - from > gap * 16
+      const clear = (!nowIn || Math.abs(named - now) > gap * 16) && named - from > gap * 16
                     && from + span - named > gap * 16;
-      if (major && clear && (days === 7 || d.getHours() % every === 0)) {
-        const text = days === 7 ? weekday.format(d)
+      // a day's name every day while there is room, else every few days
+      const dayStep = dayWidth >= 44 ? 1 : dayWidth >= 22 ? 2 : 7;
+      const dayNamed = byDay && Math.round((t - first.getTime()) / DAY) % dayStep === 0;
+      if (major && clear && (byDay ? dayNamed : d.getHours() % every === 0)) {
+        const text = byDay ? (half > 7 * DAY ? dated.format(d) : weekday.format(d))
           : d.getHours() === 0 ? weekday.format(d) : hourOnly.format(d);
         const label = el("span", "hour", text);
         label.style.left = at(named);
@@ -515,16 +675,21 @@ details.more[open] summary { margin-bottom: 12px; }
       });
       (card.upcoming || []).forEach((iso) => {
         const t = new Date(iso).getTime();
-        if (t < now || t > now + half) return;
+        if (t < Math.max(now, from) || t > to) return;
         mark(lane, t, "ahead", `${when(iso)} — coming up — ${what}`, () => focusItem(card.id));
       });
       field.append(lane);
     });
-    field.append(el("div", "now"));
+    if (nowIn) {
+      const line = el("div", "now");
+      line.style.left = at(now);
+      field.append(line);
+    }
     strip.append(field);
 
     const empty = $("day-empty");
-    const looked = days === 1 ? "the last day or the next" : "the last week or the next";
+    const looked = following && half === DAY ? "the last day or the next"
+      : following && half === 7 * DAY ? "the last week or the next" : "this stretch of time";
     empty.textContent = cards.length ? `Nothing ran or runs in ${looked}.`
                                      : "Nothing set up yet. Make a schedule below and it shows here.";
     empty.classList.toggle("hidden", count > 0);
@@ -747,12 +912,17 @@ details.more[open] summary { margin-bottom: 12px; }
   // -- refresh -----------------------------------------------------------------
   async function refresh() {
     if (!token) { $("no-token").classList.remove("hidden"); return; }
-    const since = new Date(Date.now() - days * 86400000).toISOString();
+    // what the window on screen needs: runs from its left edge, times
+    // ahead to its right edge (Samay lists 14 days ahead at most)
+    const now = Date.now(), center = view.center ?? now;
+    const since = new Date(Math.min(now, center - view.half)).toISOString();
+    const ahead = Math.max(1, Math.min(14, Math.ceil((center + view.half - now) / DAY)));
     const [status, list, past] = await Promise.all([
-      api("GET", "status"), api("GET", `schedules?ahead=${days}`),
+      api("GET", "status"), api("GET", `schedules?ahead=${ahead}`),
       api("GET", `runs?since=${encodeURIComponent(since)}&limit=500`)]);
     $("no-token").classList.add("hidden");
     drawState(status);
+    last = { schedules: list.schedules, runs: past.runs };
     drawDay(list.schedules, past.runs);
     drawList(list.schedules);
   }

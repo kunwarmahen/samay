@@ -179,9 +179,16 @@ is a timeline with *now* in the middle: the last 24 hours on the left,
 a dot for every run that happened, coloured by how it went (done,
 nothing new, needs you, failed), and the next 24 hours on the right, a
 ring for every run due. Each schedule gets its own row, named at the
-left. **Week** stretches both sides to seven days. Click a past dot and
+left. **Week** stretches both sides to seven days. Drag it sideways to
+look further back (up to 60 days) or ahead (up to 14, as far as Samay
+lists times ahead); zoom with **+** and **−**, a pinch, or Ctrl and the
+wheel, from two hours either side to two weeks. A plain wheel still
+scrolls the page. With the timeline focused, the arrow keys move it,
+**+** and **−** zoom and **0** comes back. Off *now*, the heading names
+the stretch shown and **Now** brings you back; what's drawn is fetched
+for exactly that stretch once you stop moving. Click a past dot and
 that schedule's history opens below; click a ring and the schedule is
-highlighted. Then every schedule: when it next runs, what it does, how its last run went, and
+highlighted (a drag that ends on one doesn't open it). Then every schedule: when it next runs, what it does, how its last run went, and
 why it's paused if it is. Each one has **Run now**, **Pause** or
 **Resume**, **History** (every run, with the full answer behind a
 click), and **Delete**. **New schedule** says your *when* back in words
