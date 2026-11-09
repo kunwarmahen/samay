@@ -98,6 +98,10 @@ class Schedule:
     #: Minutes a question this run asks may wait for the person, in all;
     #: and how long a locked phone is waited on (Dvara).
     wait: int = 30
+    #: A routine schedule's own blanks ("city": "Cary"), given to each run
+    #: over the routine's installed ones: one routine, two cities, two
+    #: schedules.
+    inputs: dict = field(default_factory=dict)
 
     def as_dict(self) -> dict:
         return asdict(self)
@@ -127,7 +131,7 @@ class Run:
         return asdict(self)
 
 
-_LIST_COLUMNS = {"when", "allow_tools", "needs", "refused", "phone_steps"}
+_LIST_COLUMNS = {"when", "allow_tools", "needs", "refused", "phone_steps", "inputs"}
 
 #: Columns added after a file may already exist: (table, column, its SQL).
 #: Added to an older file when it is opened, with the default every
@@ -135,7 +139,8 @@ _LIST_COLUMNS = {"when", "allow_tools", "needs", "refused", "phone_steps"}
 _ADDED = (("schedule", "phone", "INTEGER NOT NULL DEFAULT 0"),
           ("schedule", "phone_steps", "TEXT NOT NULL DEFAULT '[]'"),
           ("schedule", "wait", "INTEGER NOT NULL DEFAULT 30"),
-          ("schedule", "phone_name", "TEXT NOT NULL DEFAULT ''"))
+          ("schedule", "phone_name", "TEXT NOT NULL DEFAULT ''"),
+          ("schedule", "inputs", "TEXT NOT NULL DEFAULT '{}'"))
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS schedule (
@@ -159,7 +164,8 @@ CREATE TABLE IF NOT EXISTS schedule (
     phone INTEGER NOT NULL DEFAULT 0,
     phone_steps TEXT NOT NULL DEFAULT '[]',
     wait INTEGER NOT NULL DEFAULT 30,
-    phone_name TEXT NOT NULL DEFAULT ''
+    phone_name TEXT NOT NULL DEFAULT '',
+    inputs TEXT NOT NULL DEFAULT '{}'
 );
 CREATE TABLE IF NOT EXISTS run (
     id TEXT PRIMARY KEY,

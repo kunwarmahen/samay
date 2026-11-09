@@ -503,6 +503,11 @@ a run; Vidhi runs its steps and tells the person what it found.
 samay add morning-brief --when "at 07:00" --runner vidhi
 ```
 
+`--input city=Durham` (repeatable; `routine_inputs` from the agent)
+gives this schedule its own values for the routine's blanks, over the
+ones it was installed with, so the same routine can run for two cities
+on two schedules.
+
 A routine that started is `NOTHING NEW` (*Started the routine
 morning-brief (run 60833e71); Vidhi tells you what it finds*), so you
 hear about the morning once, from the routine. One that couldn't start
@@ -637,7 +642,7 @@ src/samay/
 ## Status
 
 The clock, the records, the rules above, all four roads, the page and the
-agent's tools all work, and are covered by 266 tests. The API is not
+agent's tools all work, and are covered by 269 tests. The API is not
 stable.
 
 Not here yet:

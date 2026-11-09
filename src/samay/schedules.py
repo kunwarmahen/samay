@@ -127,9 +127,11 @@ def create(store: Store, *, prompt: str, when: dict | str,
            created_via: str = "cli", now: datetime | None = None,
            dvara: Dvara | None = None, phone: bool | str = False,
            phone_steps: list[str] | None = None,
-           wait: int = DEFAULT_WAIT) -> Schedule:
+           wait: int = DEFAULT_WAIT, inputs: dict | None = None) -> Schedule:
     """``phone``: true, or the name of one of the person's phones
-    ("nexus") -- which Dvara checks is free and gives the run alone."""
+    ("nexus") -- which Dvara checks is free and gives the run alone.
+    ``inputs``: a routine schedule's own blanks, kept on it and given to
+    each run (Vidhi checks them against the routine when it starts)."""
     now = now or now_utc()
     phone_name = phone.strip() if isinstance(phone, str) else ""
     if isinstance(phone, str) and not PHONE_NAME.fullmatch(phone_name):
@@ -202,6 +204,10 @@ def create(store: Store, *, prompt: str, when: dict | str,
         if not ROUTINE_NAME.fullmatch(prompt):
             raise ScheduleError(f"a routine schedule's prompt is the routine's name "
                                 f"(morning-brief), not {prompt[:40]!r}")
+    inputs = routine_inputs(inputs)
+    if inputs and runner != "vidhi":
+        raise ScheduleError("inputs are a routine's blanks: for a routine schedule "
+                            "(--runner vidhi) only")
     if runner == "direct" and agent:
         package = Path(agent).expanduser().resolve()
         if not (package / "agent.toml").is_file():
@@ -221,8 +227,45 @@ def create(store: Store, *, prompt: str, when: dict | str,
         allow_tools=grants,
         time_limit=int(time_limit), browser_profile=browser_profile,
         created_at=iso(now), created_via=created_via, next_at=said["next"][0],
-        phone=bool(phone), phone_name=phone_name, phone_steps=steps, wait=int(wait))
+        phone=bool(phone), phone_name=phone_name, phone_steps=steps, wait=int(wait),
+        inputs=inputs)
     return store.add(schedule)
+
+
+#: A routine's blank, as Vidhi names one.
+INPUT_NAME = re.compile(r"[a-z][a-z0-9_-]{0,31}")
+#: Blanks one schedule may fill, and how long each value may be.
+MAX_INPUTS, MAX_INPUT = 12, 500
+
+
+def routine_inputs(raw) -> dict:
+    """A routine schedule's blanks: ``{"city": "Cary"}``, or ``["city=Cary"]``
+    as the command line gives them. Names and sizes checked here; whether
+    the routine HAS that blank is Vidhi's to say, when a run starts."""
+    if not raw:
+        return {}
+    if isinstance(raw, list):
+        pairs = {}
+        for pair in raw:
+            name, eq, value = str(pair).partition("=")
+            if not eq:
+                raise ScheduleError(f"--input is NAME=VALUE (city=Cary), not {pair!r}")
+            pairs[name.strip()] = value.strip()
+        raw = pairs
+    if not isinstance(raw, dict):
+        raise ScheduleError("inputs is a table of a routine's blanks: {\"city\": \"Cary\"}")
+    if len(raw) > MAX_INPUTS:
+        raise ScheduleError(f"{MAX_INPUTS} inputs at the most")
+    out = {}
+    for name, value in raw.items():
+        if not INPUT_NAME.fullmatch(str(name)):
+            raise ScheduleError(f"input {name!r}: one lowercase word, as the routine names it")
+        if isinstance(value, bool) or not isinstance(value, (str, int, float)):
+            raise ScheduleError(f"input {name}: a word or a number")
+        if len(str(value)) > MAX_INPUT:
+            raise ScheduleError(f"input {name}: {MAX_INPUT} characters at the most")
+        out[str(name)] = value
+    return out
 
 
 def _dvara_owner(dvara: Dvara | None, agent: str, owner: str) -> str:

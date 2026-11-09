@@ -117,6 +117,10 @@ TOOLS: list[dict] = [
              "Instead of a prompt: the name of one of the person's routines "
              "(Vidhi's list_routines), started at each time. The routine runs its "
              "own steps and tells the person; leave prompt and allow_tools out.")},
+         "routine_inputs": {"type": "object", "description": (
+             "With routine: this schedule's own values for the routine's blanks "
+             "({\"city\": \"Cary\"}), over the ones it was installed with -- so one "
+             "routine can run for two cities on two schedules.")},
          "when": _WHEN,
          "notify": {"type": "string", "enum": list(NOTIFY),
                     "description": "when_new (default): tell the person "
@@ -282,9 +286,12 @@ class Tools:
             made = schedules.create(
                 self.store, prompt=routine, when=_need(args, "when"),
                 tz=args.get("tz") or None, owner=self.person, runner="vidhi",
-                notify="when_new", created_via="agent")
-            return (f"Saved {made.id}: starts the routine {routine} -- "
-                    f"{schedules.sentence(made)}.")
+                notify="when_new", created_via="agent",
+                inputs=args.get("routine_inputs") or None)
+            given = ", ".join(f"{k} = {v}" for k, v in made.inputs.items())
+            return (f"Saved {made.id}: starts the routine {routine}"
+                    + (f" with {given}" if given else "")
+                    + f" -- {schedules.sentence(made)}.")
         made = schedules.create(
             self.store, prompt=str(args.get("prompt") or ""),
             when=_need(args, "when"), tz=args.get("tz") or None,

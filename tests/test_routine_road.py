@@ -88,3 +88,41 @@ def test_an_agent_schedules_a_routine_by_its_name(tmp_path):
     assert "starts the routine morning-brief" in said
     made = store.schedules(owner="asha")[0]
     assert made.runner == "vidhi" and made.prompt == "morning-brief" and made.agent == ""
+
+
+# A schedule's own inputs. The bias: ONE ROUTINE FOR TWO CITIES meant two
+# installs, or worse, a schedule that quietly ran with the installed city.
+
+
+def test_a_schedules_own_inputs_go_with_every_start(vidhi, tmp_path):
+    command, log = vidhi
+    store = Store(tmp_path / "samay.db")
+    made = schedules.create(store, prompt="morning-brief", when="at 07:00", runner="vidhi",
+                            inputs=["city=Cary", "line = 60"])
+    assert store.get(made.id).inputs == {"city": "Cary", "line": "60"}
+    VidhiRunner(command=command).run(store.get(made.id), "")
+    argv = json.loads(log.read_text())
+    assert "--input=city=Cary" in argv and "--input=line=60" in argv
+
+
+def test_inputs_are_for_a_routine_schedule_and_well_formed(tmp_path):
+    store = Store(tmp_path / "samay.db")
+    with pytest.raises(ScheduleError, match="routine schedule"):
+        schedules.create(store, prompt="Check the weather", when="at 07:00",
+                         inputs={"city": "Cary"})
+    with pytest.raises(ScheduleError, match="NAME=VALUE"):
+        schedules.create(store, prompt="brief", when="at 07:00", runner="vidhi",
+                         inputs=["Cary"])
+    with pytest.raises(ScheduleError, match="one lowercase word"):
+        schedules.create(store, prompt="brief", when="at 07:00", runner="vidhi",
+                         inputs={"The City": "Cary"})
+
+
+def test_an_agent_schedules_a_routine_with_its_own_inputs(tmp_path):
+    store = Store(tmp_path / "samay.db")
+    tools = Tools(store, tmp_path, person="asha", runner="dvara", agent="helper")
+    said = tools.call("create_schedule", {"routine": "morning-brief",
+                                          "routine_inputs": {"city": "Durham"},
+                                          "when": {"at": "07:00"}})
+    assert "starts the routine morning-brief with city = Durham" in said
+    assert store.schedules(owner="asha")[0].inputs == {"city": "Durham"}

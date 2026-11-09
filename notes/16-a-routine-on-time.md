@@ -57,5 +57,10 @@ $ vidhi runs --limit 1
 
 ## Not here
 
-* **Inputs per schedule.** The routine runs with the inputs it was
-  installed with; different ones are a second routine.
+* ~~**Inputs per schedule.**~~ `samay add morning-brief --runner vidhi
+  --input city=Durham` (or `routine_inputs` on `create_schedule`) keeps
+  the schedule's own values and passes each as `--input` to `vidhi
+  start`, over the routine's installed ones: one routine, two schedules,
+  two cities. Names and sizes are checked here; whether the routine has
+  that blank is Vidhi's to say, and a start it refuses is a failed run
+  in its words.

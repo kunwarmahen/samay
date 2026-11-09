@@ -535,7 +535,11 @@ class VidhiRunner:
     its steps -- side by side, asking the person when a step says so --
     and tells the person what it found itself. So this run is quiet when
     the routine started, and says why when it couldn't (paused, gone,
-    five runs already open)."""
+    five runs already open, a blank the routine doesn't have).
+
+    The schedule's own inputs go with it (``--input city=Cary``), over
+    the routine's installed ones: the same routine, two schedules, two
+    cities."""
 
     def __init__(self, *, command: list[str] | None = None) -> None:
         self.command = command
@@ -547,6 +551,8 @@ class VidhiRunner:
             return RunResult(ok=False, stop_reason="error", detail=str(exc))
         argv = [*command, "start", schedule.prompt.strip(), f"--as={schedule.owner}",
                 f"--by=samay:{schedule.id}", "--json"]
+        for name, value in (schedule.inputs or {}).items():
+            argv.append(f"--input={name}={value}")
         try:
             done = subprocess.run(argv, capture_output=True, text=True, timeout=60,
                                   stdin=subprocess.DEVNULL)

@@ -125,6 +125,11 @@ def build_parser() -> argparse.ArgumentParser:
                    dest="browser_profile",
                    help="a browser profile of this schedule's own (sign in "
                         "there once with: yantra --browse-login URL)")
+    p.add_argument("--input", action="append", default=[], metavar="NAME=VALUE",
+                   dest="inputs",
+                   help="a routine schedule's own blank (repeatable), given to "
+                        "each run over the routine's installed one: "
+                        "--input city=Cary")
     p.add_argument("--json", action="store_true", dest="json_out")
 
     p = sub.add_parser("list", help="every schedule")
@@ -253,7 +258,7 @@ def _dispatch(args, store: Store, state: Path) -> int:
             runner=args.runner, owner=args.as_actor or schedules.LOCAL_OWNER,
             dvara=_dvara() if args.runner == "dvara" else None,
             phone=args.phone or bool(args.phone_steps),
-            phone_steps=args.phone_steps, wait=args.wait)
+            phone_steps=args.phone_steps, wait=args.wait, inputs=args.inputs)
         if args.json_out:
             print(json.dumps(_card(schedule)))
         else:
