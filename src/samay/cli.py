@@ -143,6 +143,10 @@ def build_parser() -> argparse.ArgumentParser:
         p = sub.add_parser(name, help=text)
         p.add_argument("id")
         p.add_argument("--json", action="store_true", dest="json_out")
+        if name == "rm":
+            p.add_argument("--keep-runs", action="store_true",
+                           help="remove it but keep what its runs said, to read "
+                                "with `samay runs ID`")
 
     p = sub.add_parser("allow", help="let it use more tools without asking, "
                        "from its next run")
@@ -279,7 +283,7 @@ def _dispatch(args, store: Store, state: Path) -> int:
         return 0
     if cmd == "runs":
         if args.id:
-            schedule = schedules.find(store, args.id)
+            schedule = schedules.find(store, args.id, removed=True)
             runs = store.runs(schedule.id, limit=args.limit)
         else:
             runs = store.runs(limit=args.limit)
@@ -342,7 +346,7 @@ def _dispatch(args, store: Store, state: Path) -> int:
             print(f"  {schedule.id}: {schedules.sentence(schedule)}")
         return 0
 
-    schedule = schedules.find(store, args.id)
+    schedule = schedules.find(store, args.id, removed=cmd in ("rm", "show"))
     if cmd == "show":
         if args.json_out:
             print(json.dumps(_card(schedule, store)))
@@ -372,9 +376,11 @@ def _dispatch(args, store: Store, state: Path) -> int:
               else schedules.limits_sentence(schedule))
         return 0
     if cmd == "rm":
-        schedules.remove(store, schedule.id)
-        print(json.dumps({"removed": schedule.id}) if args.json_out
-              else f"removed {schedule.id}")
+        schedules.remove(store, schedule.id, keep_runs=args.keep_runs)
+        print(json.dumps({"removed": schedule.id, "runs_kept": args.keep_runs})
+              if args.json_out else
+              f"removed {schedule.id}" + (f"; its runs kept (samay runs {schedule.id})"
+                                          if args.keep_runs else ""))
         return 0
     if cmd == "run-now":
         clock = Clock(store, _runners(state), notifier=_notifier())

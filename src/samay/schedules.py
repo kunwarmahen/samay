@@ -356,10 +356,15 @@ def _span(seconds: int) -> str:
     return f"{seconds // 60} min" if seconds % 60 == 0 else f"{seconds}s"
 
 
-def find(store: Store, schedule_id: str, owner: str | None = None) -> Schedule:
+def find(store: Store, schedule_id: str, owner: str | None = None, *,
+         removed: bool = False) -> Schedule:
     """One schedule by id -- or by a unique start of one -- that this
-    owner may touch (None: the owner of the service, who may touch all)."""
+    owner may touch (None: the owner of the service, who may touch all).
+    One removed with its runs kept is found only to read (``removed``)."""
     schedule = store.get(schedule_id)
+    if schedule is not None and schedule.state == "removed" and not removed:
+        raise ScheduleError(f"{schedule.id} was removed (its runs were kept: "
+                            f"samay runs {schedule.id})")
     if schedule is None:
         matches = [s for s in store.schedules(owner=owner)
                    if s.id.startswith(schedule_id)] if schedule_id else []
@@ -394,9 +399,13 @@ def resume(store: Store, schedule_id: str, owner: str | None = None,
     return store.get(schedule.id)
 
 
-def remove(store: Store, schedule_id: str, owner: str | None = None) -> Schedule:
-    schedule = find(store, schedule_id, owner)
-    store.delete(schedule.id)
+def remove(store: Store, schedule_id: str, owner: str | None = None, *,
+           keep_runs: bool = False) -> Schedule:
+    """Gone, with its runs; ``keep_runs``: gone, its runs kept to read."""
+    schedule = find(store, schedule_id, owner, removed=True)
+    if schedule.state == "removed" and keep_runs:
+        return schedule
+    store.delete(schedule.id, keep_runs=keep_runs)
     return schedule
 
 

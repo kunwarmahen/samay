@@ -132,6 +132,7 @@ samay resume 67cad6f8      # its next time is worked out from now
 samay allow 67cad6f8 'web_fetch'   # one more tool it may use unasked, next run on
 samay limits 67cad6f8 --time-limit 1800   # runs came back "too long": 30 min of work
 samay rm 67cad6f8          # the schedule and its history
+samay rm 67cad6f8 --keep-runs   # gone, never runs again, but `samay runs 67cad6f8` still reads what it said
 ```
 
 `samay list` looks like this:
@@ -143,6 +144,14 @@ samay rm 67cad6f8          # the schedule and its history
 ```
 
 Every command takes `--json`, for a page or a program to read.
+
+**Removed means its history too, unless you say keep it.** What is kept
+about something you asked to be gone isn't yours to find later, so `rm`
+takes the runs with it. `--keep-runs` is the other wish -- the brief is
+done with, but what it said all last month is worth having: the
+schedule leaves every list and never runs again, its runs stay under its
+id, and anything that would change it says *"was removed (its runs were
+kept)"*. `samay rm ID` again deletes those for good too.
 
 ### Keeping it running
 
@@ -214,7 +223,7 @@ POST   /api/preview      {when, tz}     the sentence, before anything is saved
 POST   /api/schedules    {prompt, when, notify, allow_tools, runner, agent, as, time_limit}
 POST   /api/schedules/ID/pause | /resume | /run      (run answers 202 at once)
 POST   /api/schedules/ID/limits  {time_limit, wait}  more time from its next run (the page's Time button)
-DELETE /api/schedules/ID
+DELETE /api/schedules/ID[?keep_runs=1]
 GET    /api/runs?schedule=ID&limit=N&since=ISO   newest first; since keeps runs at or after a time
 GET    /api/runs/ID/steps                       that run, step by step (yantra.steps.v1)
 ```
@@ -598,7 +607,8 @@ their own, `~/.samay/work/<id>`. The agent's tools can't write outside it.
 src/samay/
 ├── when.py       the 'when' form: checked, said back in words, the next times,
 │                 a five-minute floor, time zones that survive a clock change
-├── store.py      the SQLite file: schedules (the promise) and runs (the receipt)
+├── store.py      the SQLite file: schedules (the promise) and runs (the receipt);
+│                 a schedule removed with its runs kept stays as state "removed"
 ├── schedules.py  add / pause / resume / allow / remove / zone, the per-person cap,
 │                 preview; a tool to allow checked as a grant (notes/07)
 ├── clock.py      the rules: missed, skipped, claimed before running, a run a

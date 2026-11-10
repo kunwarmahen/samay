@@ -231,8 +231,10 @@ class Store:
 
     def schedules(self, owner: str | None = None,
                   state: str | None = None) -> list[Schedule]:
+        """Every schedule (of ``owner``; in ``state``). One removed with its
+        runs kept (``state = "removed"``) is listed only when asked for."""
         query, args = "SELECT * FROM schedule", []
-        where = []
+        where = [] if state is not None else ["state != 'removed'"]
         if owner is not None:
             where.append("owner = ?")
             args.append(owner)
@@ -253,10 +255,21 @@ class Store:
             db.execute(f"UPDATE schedule SET {cols} WHERE id = ?",
                        [*(_dump(k, v) for k, v in changes.items()), schedule_id])
 
-    def delete(self, schedule_id: str) -> bool:
+    def delete(self, schedule_id: str, keep_runs: bool = False) -> bool:
         """Forget a schedule and its runs. A deleted schedule's history
         goes with it: what is kept about something you asked to be gone
-        is not yours to find later."""
+        is not yours to find later.
+
+        UNLESS YOU SAY KEEP THEM. ``keep_runs``: the schedule never runs
+        again and leaves every list, but stays as ``state = "removed"``
+        with its name, so its runs (a logbook you may want: what the
+        morning brief said all last month) can still be read by its id."""
+        if keep_runs:
+            with self._db() as db:
+                return bool(db.execute(
+                    "UPDATE schedule SET state = 'removed', next_at = NULL, "
+                    "paused_because = 'removed; its runs kept' WHERE id = ?",
+                    (schedule_id,)).rowcount)
         with self._db() as db:
             gone = db.execute("DELETE FROM schedule WHERE id = ?",
                               (schedule_id,)).rowcount

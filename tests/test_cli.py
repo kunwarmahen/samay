@@ -112,6 +112,23 @@ class TestSeeingAndChanging:
         assert code == 0
         assert store.schedules() == [] and store.runs() == []
 
+    def test_remove_with_keep_runs_keeps_the_logbook_only(self, state, capsys):
+        # what the morning brief said all last month, after the brief is gone
+        card = add(capsys)
+        store = Store(state / "samay.sqlite3")
+        store.start_run(card["id"], schedules.now_utc(), outcome="missed")
+        code, out, _ = run(capsys, "rm", card["id"], "--keep-runs")
+        assert code == 0 and f"its runs kept (samay runs {card['id']})" in out
+        assert store.schedules() == []                        # in no list, never due
+        assert store.schedules(state="active") == []
+        assert [r.outcome for r in store.runs()] == ["missed"]
+        code, out, _ = run(capsys, "runs", card["id"], "--json")
+        assert code == 0 and json.loads(out)[0]["outcome"] == "missed"
+        code, _, err = run(capsys, "pause", card["id"])     # nothing to change
+        assert code == 2 and "was removed (its runs were kept" in err
+        code, _, _ = run(capsys, "rm", card["id"])           # and then gone for good
+        assert code == 0 and store.runs() == [] and store.get(card["id"]) is None
+
     def test_an_unknown_id_is_said_plainly(self, state, capsys):
         code, _, err = run(capsys, "show", "nope")
         assert code == 2 and "no schedule 'nope'" in err

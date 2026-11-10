@@ -161,6 +161,15 @@ class TestWhatThePageDoes:
         assert call(site, "DELETE", f"/api/schedules/{card['id']}")[0] == 200
         assert call(site, "GET", f"/api/schedules/{card['id']}")[0] == 404
 
+    def test_a_delete_from_the_page_may_keep_the_runs(self, site):
+        card = add(site)
+        status, body = call(site, "DELETE", f"/api/schedules/{card['id']}?keep_runs=1")
+        assert status == 200 and body == {"removed": card["id"], "runs_kept": True}
+        listed = call(site, "GET", "/api/schedules")[1]["schedules"]
+        assert card["id"] not in [s["id"] for s in listed]
+        assert call(site, "GET", f"/api/runs?schedule={card['id']}")[0] == 200
+        assert call(site, "POST", f"/api/schedules/{card['id']}/pause")[0] == 400
+
     def test_a_schedule_is_given_more_time_from_the_page(self, site):
         card = add(site)
         path = f"/api/schedules/{card['id']}/limits"

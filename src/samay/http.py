@@ -17,7 +17,7 @@ drawn from (which any other program may use too):
     POST   /api/schedules    {prompt, when, ...}
     POST   /api/schedules/ID/pause | /resume | /run
     POST   /api/schedules/ID/limits  {time_limit?, wait?}  from its next run
-    DELETE /api/schedules/ID
+    DELETE /api/schedules/ID[?keep_runs=1]   gone; with keep_runs, its runs kept to read
 
 A TOKEN, ALWAYS. Every ``/api`` call carries ``Authorization: Bearer``.
 Localhost is not a boundary: any web page you visit can send a request
@@ -150,7 +150,7 @@ class Api:
             limit = _int(query.get("limit", ["50"])[0], "limit")
             schedule_id = query.get("schedule", [None])[0]
             if schedule_id:
-                schedule_id = schedules.find(self.store, schedule_id).id
+                schedule_id = schedules.find(self.store, schedule_id, removed=True).id
             since = query.get("since", [None])[0]
             if since:
                 try:
@@ -170,13 +170,15 @@ class Api:
             if method == "POST":
                 return 201, schedules.card(self._create(body), self.store)
         if len(parts) >= 2 and parts[0] == "schedules":
-            schedule = schedules.find(self.store, parts[1])
+            reading = len(parts) == 2 and method in ("GET", "DELETE")
+            schedule = schedules.find(self.store, parts[1], removed=reading)
             action = parts[2] if len(parts) == 3 else None
             if len(parts) == 2 and method == "GET":
                 return 200, schedules.card(schedule, self.store)
             if len(parts) == 2 and method == "DELETE":
-                schedules.remove(self.store, schedule.id)
-                return 200, {"removed": schedule.id}
+                keep = query.get("keep_runs", [""])[0] in ("1", "true", "yes")
+                schedules.remove(self.store, schedule.id, keep_runs=keep)
+                return 200, {"removed": schedule.id, "runs_kept": keep}
             if method == "POST" and action == "pause":
                 return 200, schedules.card(
                     schedules.pause(self.store, schedule.id), self.store)
