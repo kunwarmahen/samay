@@ -8,6 +8,8 @@
     samay show ID                               one schedule in full
     samay runs [ID]                             what happened, newest first
     samay pause ID | resume ID | rm ID
+    samay edit ID [--prompt WORDS] [--when W] [--tz ZONE] [--notify N] [--phone NAME]
+                                                change it in place; its runs stay
     samay allow ID TOOL...                      let it use more tools unasked, next run on
     samay zone WHO --from OLD [--to NEW]        their schedules in OLD moved to NEW
                                                 (they moved; "" is this machine's zone)
@@ -147,6 +149,19 @@ def build_parser() -> argparse.ArgumentParser:
             p.add_argument("--keep-runs", action="store_true",
                            help="remove it but keep what its runs said, to read "
                                 "with `samay runs ID`")
+
+    p = sub.add_parser("edit", help="change what it asks, when it runs, where it "
+                       "tells -- in place, its runs and allowed tools kept")
+    p.add_argument("id")
+    p.add_argument("--prompt", default=None, metavar="WORDS",
+                   help="what to do each time (a routine schedule: the routine's name)")
+    p.add_argument("--when", default=None,
+                   help="a new 'when', short form or JSON; an every counts from now")
+    p.add_argument("--tz", default=None, metavar="ZONE")
+    p.add_argument("--notify", default=None, choices=NOTIFY)
+    p.add_argument("--phone", default=None, metavar="NAME", dest="phone_name",
+                   help="which of the person's phones ('' for their only one)")
+    p.add_argument("--json", action="store_true", dest="json_out")
 
     p = sub.add_parser("allow", help="let it use more tools without asking, "
                        "from its next run")
@@ -363,6 +378,13 @@ def _dispatch(args, store: Store, state: Path) -> int:
         print(json.dumps(_card(schedule)) if args.json_out
               else f"resumed {schedule.id}: {schedules.sentence(schedule)}")
         return 0
+    if cmd == "edit":
+        changed = schedules.edit(store, schedule.id, prompt=args.prompt, when=args.when,
+                                 tz=args.tz, notify=args.notify,
+                                 phone_name=args.phone_name)
+        print(json.dumps(_card(changed)) if args.json_out
+              else schedules.changed_sentence(schedule, changed))
+        return 0
     if cmd == "allow":
         schedule = schedules.allow(store, schedule.id, args.tools)
         print(json.dumps(_card(schedule)) if args.json_out
@@ -541,7 +563,9 @@ def _print_schedule(schedule: Schedule, store: Store, full: bool = False) -> Non
         if schedule.browser_profile:
             print(f"          browser profile: {schedule.browser_profile}")
         print(f"          made {_short(schedule.created_at, zone)} "
-              f"(by {schedule.created_via}), for {schedule.owner}")
+              f"(by {schedule.created_via}), for {schedule.owner}"
+              + (f"; changed {_short(schedule.changed_at, zone)}"
+                 if schedule.changed_at else ""))
 
 
 def _print_run(run: Run, zone: ZoneInfo | None, with_schedule: bool) -> None:

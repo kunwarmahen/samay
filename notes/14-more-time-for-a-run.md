@@ -48,3 +48,7 @@ work, 1 to 240 minutes for questions, checked in one place
 * ~~**A box on Samay's page.**~~ The **Time** button, above. The wait
   for questions is still the command, the chat or the API: a page
   button for a number most people never change would be clutter.
+* ~~**Anything else changed in place.**~~ Its time, its prompt, its
+  zone and when it tells: `samay edit`, the page's **Change**, the
+  agent's `change_schedule`
+  ([17 — changed in place](17-changed-in-place.md)).

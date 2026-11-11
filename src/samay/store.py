@@ -66,6 +66,11 @@ def from_iso(text: str | None) -> datetime | None:
     return None if not text else datetime.fromisoformat(text)
 
 
+def counts_from(schedule: Schedule) -> datetime | None:
+    """Where its ``every`` counts from: when its ``when`` was last set."""
+    return from_iso(schedule.counted_from or schedule.created_at)
+
+
 @dataclass
 class Schedule:
     id: str
@@ -102,6 +107,12 @@ class Schedule:
     #: over the routine's installed ones: one routine, two cities, two
     #: schedules.
     inputs: dict = field(default_factory=dict)
+    #: Where an ``every`` counts from when its ``when`` was changed after
+    #: it was made ("" -- from ``created_at``): "every 2h" changed at 3
+    #: runs at 5, not on the old schedule's beat.
+    counted_from: str = ""
+    #: When it was last changed in place (``samay edit``), "" never.
+    changed_at: str = ""
 
     def as_dict(self) -> dict:
         return asdict(self)
@@ -140,7 +151,9 @@ _ADDED = (("schedule", "phone", "INTEGER NOT NULL DEFAULT 0"),
           ("schedule", "phone_steps", "TEXT NOT NULL DEFAULT '[]'"),
           ("schedule", "wait", "INTEGER NOT NULL DEFAULT 30"),
           ("schedule", "phone_name", "TEXT NOT NULL DEFAULT ''"),
-          ("schedule", "inputs", "TEXT NOT NULL DEFAULT '{}'"))
+          ("schedule", "inputs", "TEXT NOT NULL DEFAULT '{}'"),
+          ("schedule", "counted_from", "TEXT NOT NULL DEFAULT ''"),
+          ("schedule", "changed_at", "TEXT NOT NULL DEFAULT ''"))
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS schedule (
@@ -165,7 +178,9 @@ CREATE TABLE IF NOT EXISTS schedule (
     phone_steps TEXT NOT NULL DEFAULT '[]',
     wait INTEGER NOT NULL DEFAULT 30,
     phone_name TEXT NOT NULL DEFAULT '',
-    inputs TEXT NOT NULL DEFAULT '{}'
+    inputs TEXT NOT NULL DEFAULT '{}',
+    counted_from TEXT NOT NULL DEFAULT '',
+    changed_at TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS run (
     id TEXT PRIMARY KEY,

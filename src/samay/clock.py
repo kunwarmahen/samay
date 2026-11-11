@@ -66,7 +66,7 @@ from typing import Protocol
 
 from samay import when as when_mod
 from samay.runners import JOB, Job, Runner, RunResult
-from samay.store import (FAILURES, Run, Schedule, Store, from_iso, iso,
+from samay.store import (FAILURES, counts_from, Run, Schedule, Store, from_iso, iso,
                          now_utc)
 
 #: Failures in a row before a schedule pauses itself.
@@ -271,7 +271,7 @@ class Clock:
     def _due(self, schedule: Schedule, due: datetime, now: datetime
              ) -> list[Future]:
         parsed = when_mod.parse(schedule.when, schedule.tz)
-        nxt = parsed.next_after(now, anchor=from_iso(schedule.created_at))
+        nxt = parsed.next_after(now, anchor=counts_from(schedule))
         # Claimed first: whatever happens to this run, this time is spent.
         if nxt is None:
             self.store.update(schedule.id, next_at=None, state="done")

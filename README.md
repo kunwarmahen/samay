@@ -129,6 +129,8 @@ samay show 67cad6f8        # one schedule in full (an id's first few letters do 
 samay run-now 67cad6f8     # once, now, here -- and wait for it
 samay pause 67cad6f8
 samay resume 67cad6f8      # its next time is worked out from now
+samay edit 67cad6f8 --when "at 08:00 on weekdays"   # change it in place: its runs stay
+samay edit 67cad6f8 --prompt "my brief, and the weather in Cary" --notify always
 samay allow 67cad6f8 'web_fetch'   # one more tool it may use unasked, next run on
 samay limits 67cad6f8 --time-limit 1800   # runs came back "too long": 30 min of work
 samay rm 67cad6f8          # the schedule and its history
@@ -199,9 +201,11 @@ for exactly that stretch once you stop moving. Click a past dot and
 that schedule's history opens below; click a ring and the schedule is
 highlighted (a drag that ends on one doesn't open it). Then every schedule: when it next runs, what it does, how its last run went, and
 why it's paused if it is. Each one has **Run now**, **Pause** or
-**Resume**, **History** (every run, with the full answer behind a
-click), and **Delete**. **New schedule** says your *when* back in words
-as you type it, before anything is saved.
+**Resume**, **Time**, **Change**, **History** (every run, with the full
+answer behind a click), and **Delete**. **New schedule** says your *when*
+back in words as you type it, before anything is saved, and so does
+**Change**: it opens under the schedule with what it does, when, and when
+it tells you, and **Save changes** sends only what you changed.
 
 ![Samay's page: a timeline with now in the middle — yesterday's mail checks as coloured dots on the left, the next day's runs as gold rings on the right, a row per schedule — then three schedules with their next times and last runs](docs/page.png)
 
@@ -223,6 +227,7 @@ POST   /api/preview      {when, tz}     the sentence, before anything is saved
 POST   /api/schedules    {prompt, when, notify, allow_tools, runner, agent, as, time_limit}
 POST   /api/schedules/ID/pause | /resume | /run      (run answers 202 at once)
 POST   /api/schedules/ID/limits  {time_limit, wait}  more time from its next run (the page's Time button)
+POST   /api/schedules/ID/edit    {prompt?, when?, tz?, notify?, phone_name?}  changed in place (the page's Change)
 DELETE /api/schedules/ID[?keep_runs=1]
 GET    /api/runs?schedule=ID&limit=N&since=ISO   newest first; since keeps runs at or after a time
 GET    /api/runs/ID/steps                       that run, step by step (yantra.steps.v1)
@@ -243,14 +248,15 @@ samay mcp --for local --agent ~/agents/reader    # what a harness starts
 | `preview_schedule` | checks a *when* and says it back in words, with the next three times |
 | `list_schedules`, `schedule_runs` | what this person has set up, and how it went |
 | `create_schedule` | saves one; the prompt is written for the agent's future self; `routine` instead of a prompt starts one of the person's Vidhi routines at each time ([notes/16](notes/16-a-routine-on-time.md)) |
+| `change_schedule` | changes one in place: what it asks, when, its zone, when it tells, which phone; its runs and allowed tools stay ([notes/17](notes/17-changed-in-place.md)) |
 | `allow_for_schedule` | lets a schedule use a tool it was refused, from its next run |
 | `give_schedule_time` | gives a schedule's runs more (or less) time, from its next run, when one came back *too long* |
 | `pause_schedule`, `resume_schedule`, `delete_schedule` | |
 
 **The agent proposes and you accept.** The three reading tools are
-marked read-only and the six that change something aren't, so a
+marked read-only and the seven that change something aren't, so a
 harness that honours the mark (Yantra does) asks you before every
-create, pause, resume, allow and delete. In the browser that's a card, at the
+create, change, pause, resume, allow and delete. In the browser that's a card, at the
 terminal a y/N, on Telegram two buttons. The tools tell the model to
 preview first and tell you the sentence, so by the time the card
 arrives you've read what it means.
@@ -531,6 +537,14 @@ hear about the morning once, from the routine. One that couldn't start
 words. An agent asks for one with `routine` on `create_schedule`. See
 [16 — a routine on time](notes/16-a-routine-on-time.md).
 
+**Changing one.** "Make it 8 instead of 7" is `samay edit ID --when "at
+08:00"`, the **Change** button on the page, or asking the agent
+(`change_schedule`). It's the same schedule after: same id, same runs,
+same tools allowed. A new *when* counts from the moment you change it,
+so "every 2h" changed at 3 next runs at 5. What it runs (its road, its
+agent, whether it works the phone) stays: that's a new schedule. See
+[17 — changed in place](notes/17-changed-in-place.md).
+
 `--wait MINUTES` (default 30) is how long, in all, a run's questions may
 wait for the person. One that outwaits it **lapses**: refused, and the
 run's record says what it was (`samay runs`: `asked, not answered: …`).
@@ -609,8 +623,10 @@ src/samay/
 │                 a five-minute floor, time zones that survive a clock change
 ├── store.py      the SQLite file: schedules (the promise) and runs (the receipt);
 │                 a schedule removed with its runs kept stays as state "removed"
-├── schedules.py  add / pause / resume / allow / remove / zone, the per-person cap,
-│                 preview; a tool to allow checked as a grant (notes/07)
+├── schedules.py  add / edit / pause / resume / allow / remove / zone, the
+│                 per-person cap, preview; a tool to allow checked as a grant
+│                 (notes/07); a schedule changed in place, a new when counting
+│                 from the change (notes/17)
 ├── clock.py      the rules: missed, skipped, claimed before running, a run a
 │                 restart stopped carried on when recent and saved (notes/10), paused
 │                 after failures or a need, what is sent (a when_new run is
@@ -659,7 +675,7 @@ src/samay/
 ## Status
 
 The clock, the records, the rules above, all four roads, the page and the
-agent's tools all work, and are covered by 269 tests. The API is not
+agent's tools all work, and are covered by 290 tests. The API is not
 stable.
 
 Not here yet:

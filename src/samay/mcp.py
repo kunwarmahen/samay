@@ -3,7 +3,7 @@
     samay mcp --for mahen [--agent DIR|NAME] [--runner direct|dvara]
 
 An MCP server on stdin/stdout -- newline-delimited JSON-RPC, written by
-hand like the client in Yantra -- with eight tools:
+hand like the client in Yantra -- with ten tools:
 
     preview_schedule    read    check a 'when'; the sentence and next times
     list_schedules      read    this person's schedules
@@ -11,13 +11,15 @@ hand like the client in Yantra -- with eight tools:
     create_schedule     write   save one
     pause_schedule      write
     resume_schedule     write
+    change_schedule     write   change one in place: prompt, when, zone, notify, phone
     allow_for_schedule  write   let it use a tool it was refused, next time
+    give_schedule_time  write   more (or less) time for its runs
     delete_schedule     write
 
 THE AGENT PROPOSES, THE PERSON ACCEPTS. Nothing here asks anybody
-anything: the three read tools say ``readOnlyHint: true`` and the four
-others do not, so a harness that honours the hint (Yantra does) puts
-every create, pause, resume, allow and delete in front of the person first --
+anything: the three read tools say ``readOnlyHint: true`` and the others do
+not, so a harness that honours the hint (Yantra does) puts every
+create, change, pause, resume, allow and delete in front of the person first --
 as a permission card in the browser, a y/N in the terminal, two buttons
 on Telegram. What they see is the call's arguments: the prompt, the
 ``when``, what gets sent and which tools it may use unasked. The
@@ -161,6 +163,30 @@ TOOLS: list[dict] = [
      "description": "Start a paused schedule again, from now.",
      "inputSchema": {"type": "object", "properties": {
          "id": {"type": "string"}}, "required": ["id"]},
+     "annotations": {"readOnlyHint": False, "destructiveHint": False}},
+    {"name": "change_schedule",
+     "description": (
+         "Change one of the person's schedules in place -- what it asks each "
+         "time (prompt), when it runs, its zone, when it tells them, which "
+         "of their phones -- keeping its id, its runs and the tools it was "
+         "allowed. Pass only what changes. For a new when, call "
+         "preview_schedule first and tell the person the sentence; an every "
+         "counts from now. A new prompt is a complete instruction to "
+         "yourself for later, like create_schedule's. Use this, not "
+         "delete + create, when the person wants one changed: \"make my "
+         "morning brief 8 instead of 7\", \"also check the weather in it\"."),
+     "inputSchema": {"type": "object", "properties": {
+         "id": {"type": "string"},
+         "prompt": {"type": "string", "description": (
+             "The whole new instruction (a routine schedule: the routine's "
+             "name). Leave out to keep it.")},
+         "when": _WHEN,
+         "tz": {"type": "string"},
+         "notify": {"type": "string", "enum": list(NOTIFY)},
+         "phone_name": {"type": "string", "description": (
+             "For a schedule that works the phone: which of the person's "
+             "phones (\"\" for their only one).")}},
+         "required": ["id"]},
      "annotations": {"readOnlyHint": False, "destructiveHint": False}},
     {"name": "allow_for_schedule",
      "description": (
@@ -317,6 +343,17 @@ class Tools:
     def _resume_schedule(self, args: dict) -> str:
         schedule = schedules.resume(self.store, self._mine(args).id)
         return f"Resumed {schedule.id}: {schedules.sentence(schedule)}."
+
+    def _change_schedule(self, args: dict) -> str:
+        before = self._mine(args)
+        name = args.get("phone_name")
+        changed = schedules.edit(
+            self.store, before.id,
+            prompt=None if args.get("prompt") is None else str(args["prompt"]),
+            when=args.get("when") or None, tz=args.get("tz") or None,
+            notify=args.get("notify") or None,
+            phone_name=None if name is None else str(name))
+        return schedules.changed_sentence(before, changed) + "."
 
     def _allow_for_schedule(self, args: dict) -> str:
         allow = args.get("allow_tools") or []

@@ -34,7 +34,8 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from samay import when as when_mod
 from samay.dvara import Dvara, DvaraError
-from samay.store import NOTIFY, RUNNERS, Schedule, Store, from_iso, iso, now_utc
+from samay.store import (NOTIFY, RUNNERS, Schedule, Store, counts_from, iso,
+                         now_utc)
 
 DEFAULT_MAX_SCHEDULES = 20
 MIN_TIME_LIMIT, MAX_TIME_LIMIT = 30, 3600
@@ -346,6 +347,91 @@ def set_limits(store: Store, schedule_id: str, *, time_limit: int | None = None,
     return store.get(schedule.id)
 
 
+#: What ``edit`` may change, in the order it says them back.
+EDITABLE = ("prompt", "when", "tz", "notify", "phone_name")
+
+
+def edit(store: Store, schedule_id: str, *, prompt: str | None = None,
+         when: dict | str | None = None, tz: str | None = None,
+         notify: str | None = None, phone_name: str | None = None,
+         owner: str | None = None, now: datetime | None = None) -> Schedule:
+    """Change a schedule in place: what it asks (its prompt), when it
+    runs, in which zone, when it tells, which of the person's phones.
+
+    CHANGED, NOT REMADE. Its id, its runs, its allowed tools and its
+    limits stay; a schedule deleted and made again lost its logbook,
+    and the yes its tools were given. Only what is passed changes.
+
+    A NEW WHEN COUNTS FROM NOW. "every 2h" changed at 3 next runs at 5,
+    and the next time is worked out again (one that had finished comes
+    back when its new ``when`` has time left; a paused one stays paused).
+
+    WHAT IT RUNS STAYS. The road (direct, Dvara, a routine), the agent,
+    and whether it works the phone at all were part of the yes it was
+    made with; changing those is a new schedule. Which phone, of a
+    schedule that already works one, is a name, and may change."""
+    now = now or now_utc()
+    schedule = find(store, schedule_id, owner)
+    changes: dict = {}
+    if prompt is not None:
+        prompt = prompt.strip()
+        if not prompt:
+            raise ScheduleError("a schedule needs a prompt: what to do each time")
+        if schedule.runner == "vidhi" and not ROUTINE_NAME.fullmatch(prompt):
+            raise ScheduleError(f"a routine schedule's prompt is the routine's name "
+                                f"(morning-brief), not {prompt[:40]!r}")
+        if prompt != schedule.prompt:
+            changes["prompt"] = prompt
+    if notify is not None and notify != schedule.notify:
+        if notify not in NOTIFY:
+            raise ScheduleError(f"notify must be one of {', '.join(NOTIFY)}, "
+                                f"got {notify!r}")
+        changes["notify"] = notify
+    if phone_name is not None:
+        phone_name = phone_name.strip()
+        if not schedule.phone:
+            raise ScheduleError(f"{schedule.id} doesn't work a phone; one that should "
+                                "is a new schedule, made in a chat that has the phone")
+        if phone_name and not PHONE_NAME.fullmatch(phone_name):
+            raise ScheduleError(f"{phone_name!r} can't name a phone: lower case "
+                                "letters, digits and dashes, as Sparsh names it")
+        if phone_name != schedule.phone_name:
+            changes["phone_name"] = phone_name
+    zone = _zone_name(tz) if tz is not None and tz.strip() else schedule.tz
+    if when is not None or zone != schedule.tz:
+        said = preview(when if when is not None else schedule.when, zone, now)
+        if said["when"] != schedule.when or said["tz"] != schedule.tz:
+            changes.update(when=said["when"], tz=said["tz"], counted_from=iso(now),
+                           next_at=said["next"][0])
+            if schedule.state == "done":
+                changes["state"] = "active"
+    if not changes:
+        raise ScheduleError(f"nothing to change: say a new prompt, when, zone, notify "
+                            f"or phone ({schedule.id} already has what was given)")
+    changes["changed_at"] = iso(now)
+    store.update(schedule.id, **changes)
+    return store.get(schedule.id)
+
+
+def changed_sentence(before: Schedule, after: Schedule) -> str:
+    """What an ``edit`` changed, in words: what a person reads back."""
+    said = []
+    if after.prompt != before.prompt:
+        said.append(f"now asks: {_clip(after.prompt)}")
+    if after.when != before.when or after.tz != before.tz:
+        said.append(f"runs {sentence(after)}")
+    if after.notify != before.notify:
+        said.append(f"tells {after.notify.replace('_', ' ')}")
+    if after.phone_name != before.phone_name:
+        said.append(f"uses the phone {after.phone_name or '(their only one)'}")
+    return f"{after.id} changed: " + "; ".join(said or ["nothing"])
+
+
+def _clip(text: str, limit: int = 120) -> str:
+    text = " ".join(text.split())
+    return text if len(text) <= limit else text[:limit - 1] + "…"
+
+
 def limits_sentence(schedule: Schedule) -> str:
     """How long its runs get, in words."""
     return (f"{schedule.id} runs get {_span(schedule.time_limit)} of work, and "
@@ -390,7 +476,7 @@ def resume(store: Store, schedule_id: str, owner: str | None = None,
     now = now or now_utc()
     schedule = find(store, schedule_id, owner)
     parsed = when_mod.parse(schedule.when, schedule.tz)
-    nxt = parsed.next_after(now, anchor=from_iso(schedule.created_at))
+    nxt = parsed.next_after(now, anchor=counts_from(schedule))
     if nxt is None:
         raise ScheduleError(f"{schedule.id} has no time left to run; remove "
                             "it, or make a new one")
@@ -425,7 +511,7 @@ def move_zone(store: Store, owner: str, to: str, *, was: str,
         changes: dict = {"tz": new}
         if schedule.state == "active":
             nxt = when_mod.parse(schedule.when, new).next_after(
-                now, anchor=from_iso(schedule.created_at))
+                now, anchor=counts_from(schedule))
             if nxt is not None:
                 changes["next_at"] = iso(nxt)
         store.update(schedule.id, **changes)
@@ -451,6 +537,7 @@ def card(schedule: Schedule, store: Store | None = None, ahead: int = 1) -> dict
     the sentence, and (given the store) its last run."""
     out = schedule.as_dict()
     out["sentence"] = sentence(schedule)
+    out["when_text"] = when_mod.text(schedule.when)
     # The next ``ahead`` days' worth of times (24 a day at most), for a
     # page that draws the day or the week: what will run, and when.
     out["upcoming"] = []
@@ -460,7 +547,7 @@ def card(schedule: Schedule, store: Store | None = None, ahead: int = 1) -> dict
         parsed = when_mod.parse(schedule.when, schedule.tz)
         horizon = now + timedelta(days=ahead)
         out["upcoming"] = [iso(t) for t in parsed.upcoming(
-            now, 24 * ahead, anchor=from_iso(schedule.created_at)) if t <= horizon]
+            now, 24 * ahead, anchor=counts_from(schedule)) if t <= horizon]
     if store is not None:
         last = store.runs(schedule.id, limit=1)
         out["last_run"] = last[0].as_dict() if last else None
@@ -473,4 +560,4 @@ def sentence(schedule: Schedule, now: datetime | None = None) -> str:
     if schedule.state != "active":
         return parsed.sentence()
     return when_mod.describe(parsed, now or now_utc(),
-                             anchor=from_iso(schedule.created_at))
+                             anchor=counts_from(schedule))

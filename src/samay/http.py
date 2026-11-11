@@ -17,6 +17,8 @@ drawn from (which any other program may use too):
     POST   /api/schedules    {prompt, when, ...}
     POST   /api/schedules/ID/pause | /resume | /run
     POST   /api/schedules/ID/limits  {time_limit?, wait?}  from its next run
+    POST   /api/schedules/ID/edit    {prompt?, when?, tz?, notify?, phone_name?}
+                                          changed in place; the card says what changed
     DELETE /api/schedules/ID[?keep_runs=1]   gone; with keep_runs, its runs kept to read
 
 A TOKEN, ALWAYS. Every ``/api`` call carries ``Authorization: Bearer``.
@@ -193,6 +195,13 @@ class Api:
                     else _int(time_limit, "time_limit"),
                     wait=None if wait in (None, "") else _int(wait, "wait")),
                     self.store)
+            if method == "POST" and action == "edit":
+                given = {k: body[k] for k in schedules.EDITABLE
+                         if body.get(k) is not None}
+                changed = schedules.edit(self.store, schedule.id, **given)
+                card = schedules.card(changed, self.store)
+                card["said"] = schedules.changed_sentence(schedule, changed)
+                return 200, card
             if method == "POST" and action == "run":
                 try:
                     self.clock.start_now(schedule.id)

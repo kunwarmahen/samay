@@ -184,6 +184,10 @@ textarea { min-height: 76px; resize: vertical; }
 details.more summary { cursor: pointer; color: var(--ink-2); font-size: 14px; }
 details.more[open] summary { margin-bottom: 12px; }
 .actions { display: flex; gap: 10px; justify-content: flex-end; }
+/* the Change form, inside a schedule's own row */
+form.change { grid-column: 1 / -1; display: grid; gap: 12px; padding: 14px;
+              border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
+form.change input[type=text], form.change select, form.change textarea { background: var(--sheet); }
 
 /* -- schedules: rows, not cards ---------------------------------------- */
 .list { border-top: 1px solid var(--line); }
@@ -704,6 +708,9 @@ details.more[open] summary { margin-bottom: 12px; }
 
   // -- the list --------------------------------------------------------------
   const open = new Set();      // schedules whose history is showing
+  // the schedule being changed, and what is typed so far: the list is
+  // drawn again every 20 s, and what was typed must survive that
+  let changing = null, draft = {};
 
   function drawList(cards) {
     const list = $("list");
@@ -766,6 +773,12 @@ details.more[open] summary { margin-bottom: 12px; }
       if (!Number.isInteger(minutes)) throw new Error("say a whole number of minutes");
       await api("POST", `schedules/${card.id}/limits`, { time_limit: minutes * 60 });
     });
+    op(changing === card.id ? "Close" : "Change", async () => {
+      if (changing === card.id) { changing = null; draft = {}; return; }
+      changing = card.id;
+      draft = { prompt: card.prompt, when: card.when_text, notify: card.notify,
+                phone_name: card.phone_name || "" };
+    });
     op(open.has(card.id) ? "Hide history" : "History", async () => {
       if (open.has(card.id)) open.delete(card.id); else open.add(card.id);
     });
@@ -776,12 +789,77 @@ details.more[open] summary { margin-bottom: 12px; }
     }, "danger");
 
     row.append(whenBox, what, ops);
+    if (changing === card.id) row.append(changeForm(card));
     if (open.has(card.id)) {
       const box = el("div", "history", "Loading…");
       row.append(box);
       loadHistory(card.id, box);
     }
     return row;
+  }
+
+  // Change it in place: what it asks, when, when it tells, which phone.
+  // Only what differs is sent; its runs and allowed tools stay.
+  function changeForm(card) {
+    const f = el("form", "change");
+    f.autocomplete = "off";
+    const box = (label, input) => { const l = el("label"); l.append(el("span", null, label), input); return l; };
+    const ask = el("textarea"); ask.name = "prompt"; ask.value = draft.prompt;
+    const whenIn = el("input"); whenIn.type = "text"; whenIn.name = "when"; whenIn.value = draft.when;
+    const said = el("div", "said", card.sentence);
+    const notify = el("select"); notify.name = "notify";
+    [["when_new", "only when there is something new"], ["always", "every time"],
+     ["never", "never — I'll read the history"]].forEach(([v, t]) => {
+      const o = el("option", null, t); o.value = v; o.selected = draft.notify === v; notify.append(o); });
+    f.append(box(card.runner === "vidhi" ? "Routine" : "What should it do each time?", ask),
+             box("When", whenIn), said, box("Tell me", notify));
+    let phone = null;
+    if (card.phone) {
+      phone = el("input"); phone.type = "text"; phone.name = "phone_name"; phone.value = draft.phone_name;
+      phone.placeholder = "empty for your only phone";
+      f.append(box("Which phone", phone));
+    }
+    f.addEventListener("input", () => {
+      draft = { prompt: ask.value, when: whenIn.value, notify: notify.value,
+                phone_name: phone ? phone.value : "" };
+    });
+    let timer = 0;
+    whenIn.addEventListener("input", () => {
+      clearTimeout(timer);
+      timer = setTimeout(async () => {
+        const text = whenIn.value.trim();
+        if (!text) { said.className = "said"; said.textContent = ""; return; }
+        try {
+          const r = await api("POST", "preview", { when: text, tz: card.tz });
+          said.className = "said ok"; said.textContent = r.sentence;
+        } catch (e) { said.className = "said bad"; said.textContent = e.message; }
+      }, 350);
+    });
+    const actions = el("div", "actions");
+    const cancel = el("button", "btn", "Cancel"); cancel.type = "button";
+    cancel.addEventListener("click", () => { changing = null; draft = {}; drawList(last.schedules); });
+    const save = el("button", "btn main", "Save changes"); save.type = "submit";
+    actions.append(cancel, save);
+    f.append(actions);
+    f.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const body = {};
+      if (ask.value.trim() !== card.prompt) body.prompt = ask.value;
+      if (whenIn.value.trim() !== card.when_text) body.when = whenIn.value.trim();
+      if (notify.value !== card.notify) body.notify = notify.value;
+      if (phone && phone.value.trim() !== (card.phone_name || "")) body.phone_name = phone.value.trim();
+      if (!Object.keys(body).length) { changing = null; draft = {}; drawList(last.schedules); return; }
+      save.disabled = true;
+      try {
+        clearError();
+        const changed = await api("POST", `schedules/${card.id}/edit`, body);
+        changing = null; draft = {};
+        await refresh();
+        focusItem(changed.id);
+      } catch (e) { showError(e); }
+      finally { save.disabled = false; }
+    });
+    return f;
   }
 
   async function loadHistory(id, box) {
@@ -924,7 +1002,8 @@ details.more[open] summary { margin-bottom: 12px; }
     drawState(status);
     last = { schedules: list.schedules, runs: past.runs };
     drawDay(list.schedules, past.runs);
-    drawList(list.schedules);
+    // not under the person's fingers: a Change form on screen stays as typed
+    if (!(changing && document.querySelector("form.change"))) drawList(list.schedules);
   }
   refresh().catch(showError);
   setInterval(() => { if (!document.hidden) refresh().catch(() => {}); }, 20000);

@@ -286,6 +286,25 @@ def parse_text(text: str) -> dict:
     return form
 
 
+def text(form: dict) -> str:
+    """A form back in the short words ``parse_text`` reads -- what a page
+    puts in its box to change: {"at": "08:00", "days": "mon-fri"} is
+    "at 08:00 on mon-fri"."""
+    if form.get("cron"):
+        return f"cron {form['cron']}"
+    if form.get("once"):
+        return f"once {form['once']}"
+    head = "every" if form.get("every") else "at"
+    value = form.get(head)
+    words = f"{head} {','.join(value) if isinstance(value, list) else value}"
+    between, days = form.get("between"), form.get("days")
+    if between:
+        words += f" between {between}"
+    if days:
+        words += f" on {','.join(days) if isinstance(days, list) else days}"
+    return words
+
+
 def describe(when: When, now: datetime, anchor: datetime | None = None,
              count: int = 3) -> str:
     """The sentence a person accepts: what, and when it next happens."""

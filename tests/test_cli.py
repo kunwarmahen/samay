@@ -15,7 +15,7 @@ import pytest
 
 from samay import schedules
 from samay.cli import main
-from samay.store import Store
+from samay.store import Store, from_iso
 
 
 @pytest.fixture
@@ -171,7 +171,7 @@ class TestMovingZone:
         store = Store(state / "samay.sqlite3")
         moved = store.get(weather["id"])
         assert moved.tz == "Europe/London"
-        at = schedules.from_iso(moved.next_at).astimezone(schedules.ZoneInfo("Europe/London"))
+        at = from_iso(moved.next_at).astimezone(schedules.ZoneInfo("Europe/London"))
         assert (at.hour, at.minute) == (8, 0)                    # 8 where she is now
         assert store.get(market["id"]).tz == "Asia/Kolkata"      # put there on purpose
         assert store.get(others["id"]).tz == "America/New_York"  # not hers
