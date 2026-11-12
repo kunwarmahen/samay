@@ -678,7 +678,7 @@ src/samay/
 ## Status
 
 The clock, the records, the rules above, all four roads, the page and the
-agent's tools all work, and are covered by 290 tests. The API is not
+agent's tools all work, and are covered by 294 tests. The API is not
 stable.
 
 Not here yet:
