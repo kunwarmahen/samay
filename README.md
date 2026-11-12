@@ -534,8 +534,11 @@ A routine that started is `NOTHING NEW` (*Started the routine
 morning-brief (run 60833e71); Vidhi tells you what it finds*), so you
 hear about the morning once, from the routine. One that couldn't start
 (paused, removed, five runs already open) is a failed run in Vidhi's
-words. An agent asks for one with `routine` on `create_schedule`. See
-[16 — a routine on time](notes/16-a-routine-on-time.md).
+words. An agent asks for one with `routine` on `create_schedule`. On
+the page, **New schedule → Start one of my routines** lists them from
+Vidhi with their blanks; only a blank you fill becomes the schedule's
+own. Vidhi's own page and `/routines at N 20:00` in a chat make the
+same schedule. See [16 — a routine on time](notes/16-a-routine-on-time.md).
 
 **Changing one.** "Make it 8 instead of 7" is `samay edit ID --when "at
 08:00"`, the **Change** button on the page, or asking the agent

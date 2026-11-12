@@ -126,3 +126,53 @@ def test_an_agent_schedules_a_routine_with_its_own_inputs(tmp_path):
                                           "when": {"at": "07:00"}})
     assert "starts the routine morning-brief with city = Durham" in said
     assert store.schedules(owner="asha")[0].inputs == {"city": "Durham"}
+
+
+# -- from the page ------------------------------------------------------------------------
+
+LISTING = '''
+import json, sys
+if sys.argv[1:2] == ["list"]:
+    print(json.dumps([{"name": "cold-night", "title": "Cold night warning",
+                       "state": "active", "about": "Reads a temperature",
+                       "inputs": {"line": 35},
+                       "inputs_spec": [{"name": "line", "label": "Cold means below",
+                                        "kind": "number"}]}]))
+'''
+
+
+def test_the_page_lists_the_routines_with_their_blanks(tmp_path, monkeypatch):
+    from samay.http import _routines
+    script = tmp_path / "vidhi.py"
+    script.write_text(LISTING)
+    monkeypatch.setenv("SAMAY_VIDHI", f"{sys.executable} {script}")
+    got = _routines()
+    assert got["said"] == "" and got["routines"][0]["name"] == "cold-night"
+    assert got["routines"][0]["blanks"] == [{"name": "line", "label": "Cold means below",
+                                            "kind": "number"}]
+    assert got["routines"][0]["inputs"] == {"line": 35}
+
+
+def test_with_no_vidhi_the_page_says_so_and_lists_none(monkeypatch, tmp_path):
+    from samay.http import _routines
+    monkeypatch.setenv("SAMAY_VIDHI", str(tmp_path / "nothing"))
+    got = _routines()
+    assert got["routines"] == [] and got["said"]
+
+
+def test_a_schedule_made_on_the_page_keeps_only_the_blanks_given(tmp_path):
+    from samay.http import Api
+    from samay.store import Store
+    api = Api(Store(tmp_path / "s.sqlite3"), None, tmp_path)
+    made = api._create({"prompt": "cold-night", "when": "at 20:00", "runner": "vidhi",
+                        "inputs": {"line": "33", "message": ""}})
+    assert made.runner == "vidhi" and made.prompt == "cold-night"
+    assert made.inputs == {"line": "33"}
+
+
+def test_an_agent_schedule_from_the_page_carries_no_blanks(tmp_path):
+    from samay.http import Api
+    from samay.store import Store
+    api = Api(Store(tmp_path / "s.sqlite3"), None, tmp_path)
+    made = api._create({"prompt": "check mail", "when": "every 2h", "inputs": {"x": "1"}})
+    assert made.inputs == {}

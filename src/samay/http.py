@@ -14,12 +14,20 @@ drawn from (which any other program may use too):
     GET    /api/runs/ID/steps                  what that run did, step by step
                                           (yantra.steps.v1; its road says)
     POST   /api/preview      {when, tz}   the sentence, before anything is saved
+    GET    /api/routines                  the computer's routines (Vidhi's ``list
+                                          --json``), for a schedule that starts one
     POST   /api/schedules    {prompt, when, ...}
     POST   /api/schedules/ID/pause | /resume | /run
     POST   /api/schedules/ID/limits  {time_limit?, wait?}  from its next run
     POST   /api/schedules/ID/edit    {prompt?, when?, tz?, notify?, phone_name?}
                                           changed in place; the card says what changed
     DELETE /api/schedules/ID[?keep_runs=1]   gone; with keep_runs, its runs kept to read
+
+A SCHEDULE CAN START A ROUTINE. The form's "Start one of my routines"
+lists them from Vidhi (``vidhi list --json``, asked by the page when it
+opens the form) with their blanks, and makes a ``vidhi`` schedule with
+the routine's name as its prompt and only the blanks changed as its own
+inputs. Vidhi isn't asked anything else: the run is Vidhi's.
 
 A TOKEN, ALWAYS. Every ``/api`` call carries ``Authorization: Bearer``.
 Localhost is not a boundary: any web page you visit can send a request
@@ -51,6 +59,7 @@ import hmac
 import json
 import os
 import secrets
+import subprocess
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.resources import files
@@ -146,6 +155,8 @@ class Api:
     def _route(self, method, parts, query, body) -> tuple[int, dict]:
         if parts == ["status"] and method == "GET":
             return 200, report(self.state, self.store)
+        if parts == ["routines"] and method == "GET":
+            return 200, _routines()
         if parts == ["preview"] and method == "POST":
             return 200, schedules.preview(_need(body, "when"), body.get("tz"))
         if parts == ["runs"] and method == "GET":
@@ -231,7 +242,44 @@ class Api:
             phone=(str(body.get("phone_name") or "").strip()
                    or bool(body.get("phone")) or bool(body.get("phone_steps"))),
             phone_steps=_sentences(body.get("phone_steps")),
-            wait=_int(body.get("wait") or schedules.DEFAULT_WAIT, "wait"))
+            wait=_int(body.get("wait") or schedules.DEFAULT_WAIT, "wait"),
+            inputs=_pairs(body.get("inputs")) if runner == "vidhi" else None)
+
+
+def _pairs(given) -> dict | None:
+    """A routine schedule's own blanks, the ones given a value."""
+    if not isinstance(given, dict):
+        return given or None
+    return {k: v for k, v in given.items() if str(v).strip() != ""} or None
+
+
+def _routines() -> dict:
+    """The computer's routines, as Vidhi lists them: each one's name,
+    title, what it does and its blanks with what they hold. ``said`` when
+    Vidhi isn't here or didn't answer."""
+    from samay.runners import _find_vidhi
+    try:
+        command = _find_vidhi()
+    except RuntimeError as exc:
+        return {"routines": [], "said": str(exc)}
+    try:
+        done = subprocess.run([*command, "list", "--json"], capture_output=True,
+                              text=True, timeout=30, stdin=subprocess.DEVNULL)
+        cards = json.loads(done.stdout or "[]")
+    except (OSError, subprocess.TimeoutExpired, ValueError) as exc:
+        return {"routines": [], "said": f"Vidhi didn't answer ({type(exc).__name__})"}
+    out = []
+    for card in cards if isinstance(cards, list) else []:
+        if not isinstance(card, dict) or not card.get("name"):
+            continue
+        out.append({"name": card["name"], "title": card.get("title") or card["name"],
+                    "about": card.get("about") or "", "state": card.get("state") or "",
+                    "inputs": card.get("inputs") or {},
+                    "blanks": [{"name": i.get("name"), "label": i.get("label") or i.get("name"),
+                                "kind": i.get("kind") or "text"}
+                               for i in card.get("inputs_spec") or [] if isinstance(i, dict)]})
+    return {"routines": out, "said": "" if out else "No routines yet: install one on "
+                                                     "Vidhi's page."}
 
 
 def _need(body: dict, key: str):

@@ -182,6 +182,8 @@ textarea { min-height: 76px; resize: vertical; }
 .said.bad { color: var(--bad); }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 details.more summary { cursor: pointer; color: var(--ink-2); font-size: 14px; }
+.kind { display: flex; gap: 18px; flex-wrap: wrap; }
+label.pick { display: flex; gap: 6px; align-items: center; font-weight: 600; color: var(--ink); }
 details.more[open] summary { margin-bottom: 12px; }
 .actions { display: flex; gap: 10px; justify-content: flex-end; }
 /* the Change form, inside a schedule's own row */
@@ -295,15 +297,25 @@ form.change input[type=text], form.change select, form.change textarea { backgro
   </div>
 
   <form class="new hidden" id="new-form" autocomplete="off">
-    <label><span>What should it do each time?</span>
+    <div class="kind" role="radiogroup" aria-label="What it does">
+      <label class="pick"><input type="radio" name="kind" value="agent" checked> Ask my agent</label>
+      <label class="pick"><input type="radio" name="kind" value="routine"> Start one of my routines (Vidhi)</label>
+    </div>
+    <label class="for-agent"><span>What should it do each time?</span>
       <textarea name="prompt" required
         placeholder="Check my email and tell me about anything that needs a reply today."></textarea>
     </label>
+    <div class="for-routine hidden">
+      <label><span>Which routine</span><select name="routine"></select></label>
+      <div class="said" id="routine-about"></div>
+      <div class="row2" id="routine-blanks"></div>
+      <div class="said">Its steps are the routine's own; it tells you what it finds, and asks you when a step says so. A blank left empty keeps what the routine holds.</div>
+    </div>
     <label><span>When</span>
       <input type="text" name="when" required placeholder="every 2h, or at 08:00 on weekdays, or once 2026-10-06T15:00">
     </label>
     <div class="said" id="said" aria-live="polite"></div>
-    <div class="row2">
+    <div class="row2 for-agent">
       <label><span>Tell me</span>
         <select name="notify">
           <option value="when_new">only when there is something new</option>
@@ -315,7 +327,7 @@ form.change input[type=text], form.change select, form.change textarea { backgro
         <input type="text" name="allow_tools" placeholder="browser_*, web_fetch">
       </label>
     </div>
-    <details class="more">
+    <details class="more for-agent">
       <summary>Which agent, and how it runs</summary>
       <div class="row2">
         <label><span>Run</span>
@@ -958,7 +970,47 @@ form.change input[type=text], form.change select, form.change textarea { backgro
     form.classList.toggle("hidden");
     if (!form.classList.contains("hidden")) form.prompt.focus();
   });
-  $("cancel").addEventListener("click", () => { form.reset(); $("said").textContent = ""; form.classList.add("hidden"); });
+  $("cancel").addEventListener("click", () => { form.reset(); $("said").textContent = ""; form.classList.add("hidden"); showKind(); });
+
+  // "Start one of my routines": Vidhi's list, each with its blanks; the
+  // schedule's prompt is the routine's name and its runner is vidhi.
+  let routines = [];
+  function showKind() {
+    const routine = form.kind.value === "routine";
+    form.querySelectorAll(".for-agent").forEach((x) => x.classList.toggle("hidden", routine));
+    form.querySelector(".for-routine").classList.toggle("hidden", !routine);
+    form.prompt.required = !routine;
+    if (routine && !routines.length) loadRoutines();
+  }
+  async function loadRoutines() {
+    const pick = form.routine;
+    pick.replaceChildren(el("option", null, "…"));
+    let got;
+    try { got = await api("GET", "routines"); }
+    catch (e) { got = { routines: [], said: e.message }; }
+    routines = got.routines || [];
+    pick.replaceChildren(...routines.map((r) => {
+      const o = el("option", null, r.title + (r.state && r.state !== "active" ? ` (${r.state})` : ""));
+      o.value = r.name; return o; }));
+    $("routine-about").textContent = got.said || "";
+    drawBlanks();
+  }
+  function drawBlanks() {
+    const r = routines.find((x) => x.name === form.routine.value);
+    const box = $("routine-blanks");
+    box.replaceChildren();
+    if (!r) return;
+    $("routine-about").textContent = r.about || "";
+    for (const b of r.blanks) {
+      const l = el("label"), input = el("input");
+      input.type = "text"; input.dataset.blank = b.name;
+      input.placeholder = String(r.inputs[b.name] ?? "");
+      l.append(el("span", null, b.label), input);
+      box.append(l);
+    }
+  }
+  form.querySelectorAll('input[name="kind"]').forEach((x) => x.addEventListener("change", showKind));
+  form.routine.addEventListener("change", drawBlanks);
 
   let previewTimer = 0;
   form.when.addEventListener("input", () => {
@@ -978,10 +1030,17 @@ form.change input[type=text], form.change select, form.change textarea { backgro
     event.preventDefault();
     const data = Object.fromEntries(new FormData(form).entries());
     data.allow_tools = (data.allow_tools || "").split(",").map((s) => s.trim()).filter(Boolean);
+    if (data.kind === "routine") {
+      if (!data.routine) { showError(new Error("pick a routine (install one on Vidhi's page)")); return; }
+      data.prompt = data.routine; data.runner = "vidhi"; data.agent = ""; data.allow_tools = [];
+      data.inputs = Object.fromEntries([...form.querySelectorAll("[data-blank]")]
+        .filter((i) => i.value.trim()).map((i) => [i.dataset.blank, i.value.trim()]));
+    }
+    delete data.kind; delete data.routine;
     try {
       clearError();
       const made = await api("POST", "schedules", data);
-      form.reset(); $("said").textContent = ""; form.classList.add("hidden");
+      form.reset(); $("said").textContent = ""; form.classList.add("hidden"); showKind();
       await refresh();
       focusItem(made.id);
     } catch (e) { showError(e); }

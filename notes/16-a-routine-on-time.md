@@ -64,3 +64,14 @@ $ vidhi runs --limit 1
   two cities. Names and sizes are checked here; whether the routine has
   that blank is Vidhi's to say, and a start it refuses is a failed run
   in its words.
+* ~~**A routine picked on the page.**~~ *New schedule* asks **Ask my
+  agent** or **Start one of my routines (Vidhi)**. The second lists the
+  computer's routines (`GET /api/routines`, Vidhi's `list --json`) with
+  what each does and its blanks, each showing what it holds now; a blank
+  left empty keeps that, one filled becomes the schedule's own input.
+  The prompt is the routine's name and the runner `vidhi`; the agent,
+  tools and *Tell me* fields go away, since the run is Vidhi's. Vidhi's
+  card and `/routines at` in a chat make the same schedule from the
+  routine's side (Vidhi's notes/09). On a scratch Samay, *Cold night
+  warning* at 21:30 with *Cold means below* set to 30 was saved as
+  `172606e6 vidhi cold-night at 21:30 {'line': '30'}`.
