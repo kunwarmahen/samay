@@ -593,7 +593,9 @@ Every step a schedule takes on a phone says which schedule asked, on
 Sparsh's page: *Samay: Tell me my battery and any… (bfaea182)*, the start
 of its prompt and its id. A run here gets it as `YANTRA_ASKED_BY`, which
 Yantra hands to Sparsh; on the Dvara road it goes as the turn's `label`,
-and Dvara adds the person.
+and Dvara adds the person. The same label, with `YANTRA_USAGE_BY=samay`,
+is who the run's line in the house's usage file is for (Yantra's
+notes/160; `sarathi usage`).
 
 ## Settings
 

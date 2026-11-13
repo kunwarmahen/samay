@@ -237,6 +237,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # the Yantra turns this starts say whose they are in the house's usage
+    # file (Yantra's usage_log.py)
+    os.environ.setdefault("YANTRA_USAGE_BY", "samay")
     args = build_parser().parse_args(argv)
     state = state_dir(args.state)
     if args.command == "keeps":
